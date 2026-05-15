@@ -9,6 +9,7 @@ config.php
 !migrations/*.sql
 !database/*.sql
 database/supabase_data.sql
+database/supabase_full_import.sql
 *.bak
 *.backup
 
