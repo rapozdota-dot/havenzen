@@ -53,6 +53,7 @@ Server setup tasks:
 
 Render-specific instructions are in `RENDER_DEPLOYMENT.md`.
 Railway-specific instructions are still in `RAILWAY_DEPLOYMENT.md` if you later choose Railway again.
+Supabase can be used later, but it requires a MySQL-to-PostgreSQL port first. The migration plan is in `SUPABASE_MIGRATION_PLAN.md`.
 
 ## Phase 3: GPS Tracker Deployment
 
