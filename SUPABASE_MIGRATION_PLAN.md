@@ -47,6 +47,14 @@ C:\xampp\php\php.exe tools\export_supabase_data.php
 
 That creates `database/supabase_data.sql`, which contains converted inserts from the current local MySQL data. Review it before importing because it contains real users, bookings, and operational data.
 
+If Supabase SQL Editor refuses large copy-pastes, build the compact one-file import:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\build_supabase_compact_import.ps1
+```
+
+Then paste/run `database/supabase_full_import_compact.sql` in Supabase SQL Editor. It is generated with the same schema and data but uses batched insert lines to stay within editor line limits.
+
 ## Render To Supabase Connection
 
 Use Supabase's Session Pooler connection string for Render because it supports IPv4 and works well for a persistent backend service.

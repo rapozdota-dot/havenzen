@@ -10,6 +10,7 @@ config.php
 !database/*.sql
 database/supabase_data.sql
 database/supabase_full_import.sql
+database/supabase_full_import_compact.sql
 *.bak
 *.backup
 
