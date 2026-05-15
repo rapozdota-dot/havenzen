@@ -34,9 +34,24 @@ Supabase uses PostgreSQL connection strings, PostgreSQL SQL syntax, and PostgreS
 7. Test login, bookings, receipts, admin search, vehicle management, and GPS tracking.
 8. Switch Render env vars to Supabase after tests pass.
 
+Initial migration files:
+
+- `database/supabase_schema.sql`
+- `tools/export_supabase_data.php`
+
+Run the schema in Supabase SQL Editor first. Then generate the data import file locally:
+
+```powershell
+C:\xampp\php\php.exe tools\export_supabase_data.php
+```
+
+That creates `database/supabase_data.sql`, which contains converted inserts from the current local MySQL data. Review it before importing because it contains real users, bookings, and operational data.
+
 ## Render To Supabase Connection
 
 Use Supabase's Session Pooler connection string for Render because it supports IPv4 and works well for a persistent backend service.
+
+In the Supabase dashboard, open the project, choose Connect, and copy the Session Pooler connection string. Use the pooler URL, not the browser API URL.
 
 Render env variables after the port:
 
@@ -90,3 +105,5 @@ THERMAL_PRINTER_NAME=Xprinter XP-58IIH
 - Do not use the browser Supabase anon key for server-side database writes.
 - Keep the current MySQL export out of Git because it contains real users and bookings.
 - Direct thermal printing will still only work from a local Windows machine or future print bridge.
+- The generated `database/supabase_data.sql` file is ignored by Git because it contains live data.
+- The current PHP app still needs the PostgreSQL code port before Render can run against Supabase.

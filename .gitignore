@@ -8,6 +8,7 @@ config.php
 *.sql
 !migrations/*.sql
 !database/*.sql
+database/supabase_data.sql
 *.bak
 *.backup
 

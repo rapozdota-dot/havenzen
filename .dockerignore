@@ -6,6 +6,7 @@ config.php
 
 havenzen_db*.sql
 *_export.sql
+database/supabase_data.sql
 *.bak
 *.backup
 

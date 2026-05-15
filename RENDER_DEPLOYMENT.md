@@ -12,6 +12,16 @@ This setup deploys Havenzen as a free Render web service while keeping MySQL/Mar
 
 Render Free is good for a client demo, not production. The web service can sleep after idle time, local file uploads are not persistent, and direct USB thermal printing cannot run from Render.
 
+## Supabase Note
+
+Supabase uses PostgreSQL, so it is not compatible with the current `mysqli` app until the database layer and SQL queries are ported. Supabase migration prep lives in:
+
+- `database/supabase_schema.sql`
+- `tools/export_supabase_data.php`
+- `SUPABASE_MIGRATION_PLAN.md`
+
+Do not point Render's production database env vars to Supabase until the PHP database port is complete. Use this MySQL/MariaDB path for the immediate demo, or continue with the Supabase migration plan first.
+
 ## 1. Create The MySQL Database
 
 Use any MySQL/MariaDB host that allows public connections from Render. Practical options:
