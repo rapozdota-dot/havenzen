@@ -1,10 +1,17 @@
 <?php
 // Copy this file to config.php and update the values for your environment.
 
-$databaseUrl = getenv('MYSQL_URL') ?: getenv('DATABASE_URL') ?: '';
+$databaseUrl = getenv('DATABASE_URL') ?: getenv('MYSQL_URL') ?: '';
 $databaseParts = $databaseUrl ? parse_url($databaseUrl) : false;
 
-if ($databaseParts && in_array($databaseParts['scheme'] ?? '', ['mysql', 'mysql2', 'mariadb'], true)) {
+if ($databaseParts && in_array($databaseParts['scheme'] ?? '', ['postgres', 'postgresql'], true)) {
+    require_once __DIR__ . '/lib/postgres_mysqli_compat.php';
+    try {
+        $conn = new PgCompatConnection($databaseUrl);
+    } catch (Throwable $e) {
+        die('Connection failed: ' . $e->getMessage());
+    }
+} elseif ($databaseParts && in_array($databaseParts['scheme'] ?? '', ['mysql', 'mysql2', 'mariadb'], true)) {
     $servername = $databaseParts['host'] ?? 'localhost';
     $username = isset($databaseParts['user']) ? urldecode($databaseParts['user']) : 'root';
     $password = isset($databaseParts['pass']) ? urldecode($databaseParts['pass']) : '';
@@ -16,15 +23,14 @@ if ($databaseParts && in_array($databaseParts['scheme'] ?? '', ['mysql', 'mysql2
     $password = getenv('DB_PASSWORD') ?: getenv('MYSQLPASSWORD') ?: '';
     $dbname = getenv('DB_NAME') ?: getenv('MYSQLDATABASE') ?: 'havenzen_db';
     $dbport = intval(getenv('DB_PORT') ?: getenv('MYSQLPORT') ?: 3306);
+    $conn = new mysqli($servername, $username, $password, $dbname, $dbport);
+
+    if ($conn->connect_error) {
+        die('Connection failed: ' . $conn->connect_error);
+    }
+
+    $conn->set_charset('utf8mb4');
 }
-
-$conn = new mysqli($servername, $username, $password, $dbname, $dbport);
-
-if ($conn->connect_error) {
-    die('Connection failed: ' . $conn->connect_error);
-}
-
-$conn->set_charset('utf8mb4');
 
 function logSystemEvent($conn, $userId, $action, $description)
 {

@@ -27,12 +27,12 @@ Supabase uses PostgreSQL connection strings, PostgreSQL SQL syntax, and PostgreS
 
 1. Keep the current MySQL deployment path working for immediate Render demos.
 2. Create a PostgreSQL schema equivalent for Supabase.
-3. Convert the PHP database layer from `mysqli` to a small PDO-based adapter.
+3. Use the PostgreSQL compatibility layer in `lib/postgres_mysqli_compat.php` for the first Render demo.
 4. Convert SQL queries to PostgreSQL-compatible syntax.
 5. Export current MySQL data as CSV or transform it into PostgreSQL inserts.
 6. Import converted data into Supabase.
 7. Test login, bookings, receipts, admin search, vehicle management, and GPS tracking.
-8. Switch Render env vars to Supabase after tests pass.
+8. Replace the compatibility layer with direct PDO queries module by module before production launch.
 
 Initial migration files:
 
@@ -114,4 +114,4 @@ THERMAL_PRINTER_NAME=Xprinter XP-58IIH
 - Keep the current MySQL export out of Git because it contains real users and bookings.
 - Direct thermal printing will still only work from a local Windows machine or future print bridge.
 - The generated `database/supabase_data.sql` file is ignored by Git because it contains live data.
-- The current PHP app still needs the PostgreSQL code port before Render can run against Supabase.
+- The current PHP app can now start against Supabase through the compatibility layer, but production should still get a direct PDO/PostgreSQL port.

@@ -6,15 +6,7 @@ services:
     healthCheckPath: /health.php
     autoDeploy: true
     envVars:
-      - key: DB_HOST
-        sync: false
-      - key: DB_PORT
-        sync: false
-      - key: DB_USER
-        sync: false
-      - key: DB_PASSWORD
-        sync: false
-      - key: DB_NAME
+      - key: DATABASE_URL
         sync: false
       - key: GOOGLE_MAPS_API_KEY
         sync: false
