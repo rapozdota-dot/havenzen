@@ -22,6 +22,9 @@ if (isset($_GET['direct_print'])) {
     if ($_GET['direct_print'] === 'success') {
         $statusType = 'success';
         $statusMessage = 'Direct thermal print sent to ' . THERMAL_PRINTER_NAME . '.';
+    } elseif ($_GET['direct_print'] === 'browser_fallback') {
+        $statusType = 'success';
+        $statusMessage = trim((string) ($_GET['message'] ?? 'Opening browser print. Select the thermal printer installed on this laptop.'));
     } elseif ($_GET['direct_print'] === 'error') {
         $statusType = 'error';
         $statusMessage = trim((string) ($_GET['message'] ?? 'Direct thermal print failed.'));
@@ -302,7 +305,7 @@ if (($_GET['format'] ?? '') === 'txt') {
     <?php endif; ?>
 
     <div class="print-note">
-        <strong>Direct Thermal Print</strong> is the recommended option for this printer. Browser print and plain text are fallback tools only.
+        On the deployed site, printing uses this laptop browser and its installed printer driver. Select the thermal printer in the print dialog.
     </div>
 
     <div class="ticket">

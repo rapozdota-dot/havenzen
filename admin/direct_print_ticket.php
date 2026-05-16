@@ -16,6 +16,13 @@ if (!$booking) {
 
 $receiptText = hz_build_receipt_text($booking);
 $errorMessage = null;
+
+if (!hz_can_server_raw_print($errorMessage)) {
+    $message = rawurlencode($errorMessage . ' Opening browser print instead.');
+    header('Location: print_ticket.php?booking_id=' . $booking_id . '&direct_print=browser_fallback&autoprint=1&message=' . $message);
+    exit;
+}
+
 $success = hz_send_raw_receipt_to_printer($receiptText, THERMAL_PRINTER_NAME, $errorMessage);
 
 if ($success) {
@@ -33,5 +40,5 @@ if ($success) {
 }
 
 $message = rawurlencode($errorMessage ?: 'Direct thermal print failed.');
-header('Location: print_ticket.php?booking_id=' . $booking_id . '&direct_print=error&message=' . $message);
+header('Location: print_ticket.php?booking_id=' . $booking_id . '&direct_print=error&autoprint=1&message=' . $message);
 exit;

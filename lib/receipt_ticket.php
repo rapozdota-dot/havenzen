@@ -252,8 +252,23 @@ function hz_render_receipt_html(array $booking): string
     return $html;
 }
 
+function hz_can_server_raw_print(?string &$reason = null): bool
+{
+    if (PHP_OS_FAMILY !== 'Windows') {
+        $reason = 'Direct thermal printing is only available when the PHP server is running on the Windows laptop with the printer driver installed.';
+        return false;
+    }
+
+    $reason = null;
+    return true;
+}
+
 function hz_send_raw_receipt_to_printer(string $receiptText, string $printerName, ?string &$errorMessage = null): bool
 {
+    if (!hz_can_server_raw_print($errorMessage)) {
+        return false;
+    }
+
     $printerName = trim($printerName);
     if ($printerName === '') {
         $errorMessage = 'Thermal printer name is not configured.';
