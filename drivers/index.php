@@ -159,10 +159,10 @@ if (isset($driver_data['vehicle_id']) && !empty($driver_data['vehicle_id'])) {
     <div class="action-card">
         <div class="action-content">
             <div class="action-icon"><i class="fas fa-location-dot"></i></div>
-            <h3>Update Location</h3>
-            <p>Share your current location for accurate ETA calculations and better passenger experience.</p>
+            <h3>Live Location Sharing</h3>
+            <p>Your location now updates automatically every 6 seconds while you are online. Use this only as a manual fallback.</p>
             <button class="btn btn-primary" onclick="openLocationModal()">
-                <i class="fas fa-map-marker-alt"></i> Update Location
+                <i class="fas fa-map-marker-alt"></i> Send Location Now
             </button>
         </div>
     </div>

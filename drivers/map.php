@@ -147,7 +147,9 @@ let bookingMarkers = {};
 let mapInitialized = false;
 let firstDataLoad = true;
 let watchId = null;
-const GPS_UPDATE_INTERVAL_MS = 4000;
+let locationIntervalId = null;
+let mapLocationInFlight = false;
+const GPS_UPDATE_INTERVAL_MS = 6000;
 let lastLocationSentAt = 0;
 
 function initMap() {
@@ -202,6 +204,7 @@ function initMap() {
             // Load data
             loadDriverData();
             loadVehicleLocations();
+            startLocationTracking();
         });
 
         // Force resize after a short delay to ensure map renders properly
@@ -228,39 +231,71 @@ function updateRefreshTimer() {
 
 // Start tracking driver's location
 function startLocationTracking() {
-    if (navigator.geolocation) {
-        if (watchId) return;
+    if (!navigator.geolocation) {
+        document.getElementById('location-status').textContent = 'GPS Unavailable';
+        return;
+    }
 
-        watchId = navigator.geolocation.watchPosition(
-            (position) => {
-                const newPos = {
-                    lat: position.coords.latitude,
-                    lng: position.coords.longitude
-                };
-                
-                // Update driver marker position
-                if (driverMarker) {
-                    driverMarker.setPosition(newPos);
-                    driverMap.panTo(newPos); // Always keep centered on vehicle
-                    driverMap.setZoom(17);
-                }
-                
-                const now = Date.now();
-                if (lastLocationSentAt === 0 || now - lastLocationSentAt >= GPS_UPDATE_INTERVAL_MS) {
-                    lastLocationSentAt = now;
-                    updateDriverLocation(newPos.lat, newPos.lng);
-                }
-            },
-            (error) => {
-                console.error('Geolocation error:', error);
-                document.getElementById('location-status').textContent = 'GPS Error';
-            },
-            {
-                enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: GPS_UPDATE_INTERVAL_MS
-            }
-        );
+    if (watchId || locationIntervalId) return;
+
+    requestAndSendDriverLocation(true);
+
+    locationIntervalId = setInterval(function() {
+        requestAndSendDriverLocation(true);
+    }, GPS_UPDATE_INTERVAL_MS);
+
+    watchId = navigator.geolocation.watchPosition(
+        (position) => handleDriverPosition(position, false),
+        (error) => {
+            console.error('Geolocation error:', error);
+            document.getElementById('location-status').textContent = 'GPS Error';
+        },
+        {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: GPS_UPDATE_INTERVAL_MS
+        }
+    );
+}
+
+function requestAndSendDriverLocation(forceUpload) {
+    if (mapLocationInFlight || !navigator.geolocation) return;
+
+    mapLocationInFlight = true;
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            mapLocationInFlight = false;
+            handleDriverPosition(position, forceUpload);
+        },
+        (error) => {
+            mapLocationInFlight = false;
+            console.error('Geolocation error:', error);
+            document.getElementById('location-status').textContent = 'GPS Error';
+        },
+        {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: forceUpload ? 0 : GPS_UPDATE_INTERVAL_MS
+        }
+    );
+}
+
+function handleDriverPosition(position, forceUpload) {
+    const newPos = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude
+    };
+
+    if (driverMarker) {
+        driverMarker.setPosition(newPos);
+        driverMap.panTo(newPos);
+        driverMap.setZoom(17);
+    }
+
+    const now = Date.now();
+    if (forceUpload || lastLocationSentAt === 0 || now - lastLocationSentAt >= GPS_UPDATE_INTERVAL_MS) {
+        lastLocationSentAt = now;
+        updateDriverLocation(newPos.lat, newPos.lng);
     }
 }
 
@@ -877,6 +912,9 @@ window.gm_authFailure = function() {
 window.addEventListener('beforeunload', function() {
     if (watchId) {
         navigator.geolocation.clearWatch(watchId);
+    }
+    if (locationIntervalId) {
+        clearInterval(locationIntervalId);
     }
 });
 

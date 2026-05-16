@@ -14,14 +14,14 @@
                 <button class="modal-close" onclick="closeLocationModal()">&times;</button>
             </div>
             <div class="modal-body">
-                <p>Your current location is being shared with the system for better ETA calculations.</p>
+                <p>Your current location is shared automatically every 6 seconds while you are online. You can also send it now if needed.</p>
                 <div class="location-coordinates">
                     <span id="currentCoordinates">Getting location...</span>
                 </div>
             </div>
             <div class="modal-actions">
                 <button class="btn btn-secondary" onclick="closeLocationModal()">Cancel</button>
-                <button class="btn btn-primary" onclick="updateFooterDriverLocation()">Update Location</button>
+                <button class="btn btn-primary" onclick="updateFooterDriverLocation({ silent: false, forceFresh: true })">Update Now</button>
             </div>
         </div>
     </div>
@@ -94,11 +94,13 @@
                     indicator.classList.remove('online');
                     indicator.classList.add('offline');
                     indicator.innerHTML = '<i class="fas fa-circle"></i><span>Offline</span>';
+                    stopDriverLocationAutoUpdate();
                     showNotification('You are now offline', 'info');
                 } else {
                     indicator.classList.remove('offline');
                     indicator.classList.add('online');
                     indicator.innerHTML = '<i class="fas fa-circle"></i><span>Online</span>';
+                    startDriverLocationAutoUpdate();
                     showNotification('You are now online', 'success');
                 }
             } else {
@@ -109,56 +111,127 @@
     }
 
     // Location Services
+    const DRIVER_LOCATION_INTERVAL_MS = 6000;
     let currentLocation = null;
+    let driverLocationTimer = null;
+    let driverLocationInFlight = false;
+    let lastLocationErrorNoticeAt = 0;
 
-    function getCurrentLocation() {
-        if (navigator.geolocation) {
+    function getStatusIndicator() {
+        return document.getElementById('statusIndicator');
+    }
+
+    function isDriverOnline() {
+        const indicator = getStatusIndicator();
+        return !indicator || indicator.classList.contains('online');
+    }
+
+    function setCoordinateText(text) {
+        const coordinateEl = document.getElementById('currentCoordinates');
+        if (coordinateEl) {
+            coordinateEl.textContent = text;
+        }
+    }
+
+    function shouldShowLocationError(silent) {
+        if (!silent) return true;
+
+        const now = Date.now();
+        if (now - lastLocationErrorNoticeAt < 60000) {
+            return false;
+        }
+
+        lastLocationErrorNoticeAt = now;
+        return true;
+    }
+
+    function getCurrentLocation(options = {}) {
+        const silent = options.silent !== false;
+
+        return new Promise((resolve, reject) => {
+            if (!navigator.geolocation) {
+                const error = new Error('Geolocation is not supported by this browser');
+                setCoordinateText('Location not supported');
+                if (shouldShowLocationError(silent)) {
+                    showNotification(error.message, 'error');
+                }
+                reject(error);
+                return;
+            }
+
             navigator.geolocation.getCurrentPosition(
                 (position) => {
                     currentLocation = {
                         latitude: position.coords.latitude,
                         longitude: position.coords.longitude
                     };
-                    document.getElementById('currentCoordinates').textContent = 
-                        `${currentLocation.latitude.toFixed(6)}, ${currentLocation.longitude.toFixed(6)}`;
+                    setCoordinateText(`${currentLocation.latitude.toFixed(6)}, ${currentLocation.longitude.toFixed(6)}`);
+                    resolve(currentLocation);
                 },
                 (error) => {
                     console.error('Error getting location:', error);
-                    document.getElementById('currentCoordinates').textContent = 'Location access denied';
+                    setCoordinateText('Location access denied');
+                    if (shouldShowLocationError(silent)) {
+                        showNotification('Location access denied. Please allow location sharing for live tracking.', 'error');
+                    }
+                    reject(error);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: options.forceFresh ? 0 : DRIVER_LOCATION_INTERVAL_MS
                 }
             );
-        }
+        });
     }
 
-    function updateFooterDriverLocation() {
-        if (currentLocation) {
-            showLoading();
-            fetch('update_location.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: `lat=${currentLocation.latitude}&lng=${currentLocation.longitude}`
+    function updateFooterDriverLocation(options = {}) {
+        const silent = options.silent !== false;
+
+        if (driverLocationInFlight || !isDriverOnline()) {
+            return Promise.resolve(false);
+        }
+
+        driverLocationInFlight = true;
+        if (!silent) showLoading();
+
+        return getCurrentLocation({ silent, forceFresh: options.forceFresh })
+            .then((location) => {
+                return fetch('update_location.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `lat=${encodeURIComponent(location.latitude)}&lng=${encodeURIComponent(location.longitude)}`
+                });
             })
             .then(response => response.json())
             .then(data => {
-                hideLoading();
                 if (data.success) {
-                    showNotification('Location updated successfully!', 'success');
-                    closeLocationModal();
-                } else {
-                    showNotification('Failed to update location', 'error');
+                    if (!silent) {
+                        showNotification('Location updated successfully!', 'success');
+                        closeLocationModal();
+                    }
+                    return true;
                 }
+
+                if (shouldShowLocationError(silent)) {
+                    showNotification(data.message || 'Failed to update location', 'error');
+                }
+                return false;
             })
             .catch(error => {
-                hideLoading();
-                showNotification('Error updating location', 'error');
+                console.error('Error updating location:', error);
+                return false;
+            })
+            .finally(() => {
+                driverLocationInFlight = false;
+                if (!silent) hideLoading();
             });
-        }
     }
 
     function openLocationModal() {
-        getCurrentLocation();
+        getCurrentLocation({ silent: false, forceFresh: true }).catch(() => {});
         document.getElementById('locationModal').style.display = 'flex';
     }
 
@@ -166,25 +239,39 @@
         document.getElementById('locationModal').style.display = 'none';
     }
 
-    // Auto-update location every 30 seconds when online
-    setInterval(() => {
-        const isOnline = document.getElementById('statusIndicator').classList.contains('online');
-        if (isOnline && currentLocation) {
-            updateFooterDriverLocation();
+    function startDriverLocationAutoUpdate() {
+        if (typeof window !== 'undefined' && window.DISABLE_AUTO_GEO) {
+            return;
         }
-    }, 30000);
+
+        if (driverLocationTimer) {
+            return;
+        }
+
+        updateFooterDriverLocation({ silent: true, forceFresh: true });
+        driverLocationTimer = setInterval(() => {
+            updateFooterDriverLocation({ silent: true, forceFresh: true });
+        }, DRIVER_LOCATION_INTERVAL_MS);
+    }
+
+    function stopDriverLocationAutoUpdate() {
+        if (driverLocationTimer) {
+            clearInterval(driverLocationTimer);
+            driverLocationTimer = null;
+        }
+    }
 
     // Handle page visibility
     document.addEventListener('visibilitychange', function() {
-        if (!document.hidden) {
-            getCurrentLocation();
+        if (!document.hidden && isDriverOnline()) {
+            updateFooterDriverLocation({ silent: true, forceFresh: true });
         }
     });
 
-    // Initialize location on page load (skip when page opts out)
+    // Initialize automatic location sharing on page load (skip when page opts out)
     try {
         if (!(typeof window !== 'undefined' && window.DISABLE_AUTO_GEO)) {
-            getCurrentLocation();
+            startDriverLocationAutoUpdate();
         }
     } catch (e) {
         // ignore
