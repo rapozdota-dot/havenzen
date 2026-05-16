@@ -6,11 +6,14 @@ $pending_count = 0;
 $vehicle_id = intval($driver_data['vehicle_id'] ?? 0);
 if (!$vehicle_id && isset($_SESSION['user_id'])) {
     $vidRow = $conn->query("SELECT vehicle_id FROM vehicles WHERE driver_id = " . intval($_SESSION['user_id']) . " LIMIT 1");
-    if ($vidRow && $vidRow->num_rows) { $vehicle_id = intval($vidRow->fetch_assoc()['vehicle_id']); }
+    if ($vidRow && $vidRow->num_rows) {
+        $vidData = $vidRow->fetch_assoc();
+        $vehicle_id = intval($vidData['vehicle_id'] ?? 0);
+    }
 }
 if ($vehicle_id) {
     $today = date('Y-m-d');
-    $cntRow = $conn->query("
+    $cntResult = $conn->query("
         SELECT COUNT(*) as c
         FROM bookings b
         LEFT JOIN vehicle_trips vt ON vt.trip_id = b.trip_id
@@ -18,9 +21,11 @@ if ($vehicle_id) {
           AND DATE(COALESCE(b.scheduled_departure_at, vt.scheduled_departure_at, b.requested_time)) = '$today'
           AND b.status IN ('pending', 'confirmed', 'in_progress')
           AND b.boarding_status NOT IN ('no_show', 'dropped_off')
-    ")->fetch_assoc();
+    ");
+    $cntRow = $cntResult ? $cntResult->fetch_assoc() : ['c' => 0];
     $pending_count = intval($cntRow['c'] ?? 0);
 }
+$driverCssVersion = @filemtime(__DIR__ . '/drivers.css') ?: time();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -28,7 +33,7 @@ if ($vehicle_id) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Driver Dashboard - Haven Zen</title>
-    <link rel="stylesheet" href="drivers.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="drivers.css?v=<?php echo $driverCssVersion; ?>">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>

@@ -26,11 +26,17 @@ $driver_user_id = intval($_SESSION['user_id']);
 // For backwards compatibility: many places use $driver_id to mean the user_id
 $driver_id = $driver_user_id;
 
-// Update last login and set driver as online in drivers profile table
-$stmt = $conn->prepare("UPDATE drivers SET last_login = NOW(), is_online = 1 WHERE user_id = ?");
-$stmt->bind_param("i", $driver_user_id);
-$stmt->execute();
-$stmt->close();
+// Avoid a database write on every click; refresh online state every few minutes.
+$lastDriverHeartbeat = intval($_SESSION['driver_online_heartbeat_at'] ?? 0);
+if ($lastDriverHeartbeat < time() - 300) {
+    $stmt = $conn->prepare("UPDATE drivers SET last_login = NOW(), is_online = 1 WHERE user_id = ?");
+    if ($stmt) {
+        $stmt->bind_param("i", $driver_user_id);
+        $stmt->execute();
+        $stmt->close();
+        $_SESSION['driver_online_heartbeat_at'] = time();
+    }
+}
 
 // Get driver data with vehicle information and profile details
 $stmt = $conn->prepare("
@@ -64,8 +70,17 @@ $stmt = $conn->prepare("
 $stmt->bind_param("i", $driver_user_id);
 $stmt->execute();
 $result = $stmt->get_result();
-$driver_data = $result->fetch_assoc();
+$driver_data = $result ? $result->fetch_assoc() : null;
 $stmt->close();
+
+if (!$driver_data) {
+    session_unset();
+    session_destroy();
+    if (!headers_sent()) {
+        header("Location: ../login/login.php");
+    }
+    exit();
+}
 
 // Separate internal numeric driver profile id (drivers.driver_id) from user_id
 $driver_profile_id = 0;

@@ -35,8 +35,6 @@ body, html { overflow-x: hidden; }
 .nav-link, .btn, .form-control { font-size: clamp(1rem, 2vw, 1.2rem); line-height: 1.5; }
 .card, .modal { padding: clamp(1rem, 2vw, 2rem); margin-bottom: clamp(1rem, 2vw, 2rem); }
 /* Driver Dashboard Styles - Minimalist High-Contrast Revamp */
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
-
 :root {
     /* Color Palette - Simplified for Flat Design */
     --primary-pink: #e91e63; /* Accent for CTAs and alerts */
@@ -1181,6 +1179,37 @@ body {
     }
 }
 /* Map Page Styles */
+.map-layout {
+    display: grid;
+    grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+}
+
+.map-main {
+    min-width: 0;
+}
+
+.info-section {
+    background: var(--white);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow);
+    margin-top: 16px;
+    overflow: hidden;
+}
+
+.info-section h4 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 14px 16px;
+    margin: 0;
+    border-bottom: 1px solid var(--medium-gray);
+    font-size: 0.95rem;
+}
+
 .map-container {
     background: var(--white);
     border-radius: var(--border-radius-lg);
@@ -2220,7 +2249,8 @@ input:checked + .toggle-slider:before {
     background: var(--text-color);
 }
 .driver-map-container {
-    height: 600px;
+    min-height: 520px;
+    height: min(68vh, 640px);
     width: 100%;
     background: #f8f9fa;
     border-radius: 8px;
@@ -2229,8 +2259,32 @@ input:checked + .toggle-slider:before {
 }
 
 @media (max-width: 768px) {
+    .map-layout {
+        display: flex;
+        flex-direction: column-reverse;
+        gap: 14px;
+    }
+
+    .map-main,
+    .map-sidebar {
+        width: 100%;
+    }
+
     .driver-map-container {
-        height: 400px;
+        min-height: 360px;
+        height: 58vh;
+    }
+
+    #map-loading {
+        padding: 150px 16px !important;
+    }
+
+    .map-sidebar .card {
+        margin-bottom: 12px;
+    }
+
+    .info-section {
+        margin-top: 12px;
     }
 }
 

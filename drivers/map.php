@@ -8,7 +8,8 @@ require_once 'header.php';
 
 // Get driver's current location and online status
 $session_user_id = intval($_SESSION['user_id'] ?? 0);
-$driver_row = $conn->query("SELECT ST_X(current_location) as current_lat, ST_Y(current_location) as current_lng, is_online FROM drivers WHERE user_id = $session_user_id")->fetch_assoc();
+$driver_result = $conn->query("SELECT ST_X(current_location) as current_lat, ST_Y(current_location) as current_lng, is_online FROM drivers WHERE user_id = $session_user_id");
+$driver_row = $driver_result ? $driver_result->fetch_assoc() : [];
 $default_lat = 11.2445;
 $default_lng = 125.0050;
 $driver_lat = isset($driver_row['current_lat']) && $driver_row['current_lat'] !== null ? $driver_row['current_lat'] : $default_lat;
