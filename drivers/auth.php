@@ -1,10 +1,12 @@
 <?php
-if (!headers_sent() && session_status() !== PHP_SESSION_ACTIVE) {
+if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
 
+$sessionRole = strtolower(trim((string) ($_SESSION['role'] ?? '')));
+
 // Check if user is logged in and is a driver
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'driver') {
+if (!isset($_SESSION['user_id']) || $sessionRole !== 'driver') {
     // If this is an AJAX request, return JSON so client-side code can handle it
     $acceptHeader = $_SERVER['HTTP_ACCEPT'] ?? '';
     $requestPath = $_SERVER['REQUEST_URI'] ?? '';

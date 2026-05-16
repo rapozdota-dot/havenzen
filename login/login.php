@@ -37,13 +37,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
 
+                $role = strtolower(trim((string) $user['role']));
+
                 // Successful login
                 $_SESSION['user_id'] = $user['user_id'];
                 $_SESSION['username'] = $user['username'];
-                $_SESSION['role'] = $user['role'];
+                $_SESSION['role'] = $role;
 
                 // Load full_name from role-specific profile tables
-                $role = strtolower($user['role']);
                 $full_name = null;
                 if ($role === 'admin') {
                     $profileStmt = $conn->prepare("SELECT full_name FROM admins WHERE user_id = ?");
@@ -87,7 +88,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 // Redirect based on role
                 if (isset($user['role'])) {
-                    $role = strtolower($user['role']);
                     switch ($role) {
                         case 'admin':
                             header("Location: ../admin/index.php");
