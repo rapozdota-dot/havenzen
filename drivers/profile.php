@@ -5,56 +5,75 @@ require_once 'header.php';
 // Use session user id as driver id
 $driver_id = $_SESSION['user_id'] ?? 0;
 
-// Get driver details from drivers profile table joined with users and vehicles
-$driver_details = $conn->query("
-    SELECT 
-        u.user_id,
-        u.username,
-        u.role,
-        u.password,
-        d.full_name,
-        d.email,
-        d.phone_number,
-        d.license_number,
-        d.license_expiry,
-        d.license_class,
-        d.license_front_image,
-        d.license_back_image,
-        d.years_experience,
-        d.emergency_contact,
-        d.emergency_phone,
-        d.address,
-        d.profile_picture,
-        v.vehicle_id,
-        v.vehicle_name,
-        v.license_plate,
-        v.vehicle_type,
-        v.vehicle_color,
-        v.status as vehicle_status
-    FROM users u
-    JOIN drivers d ON d.user_id = u.user_id
-    LEFT JOIN vehicles v ON v.driver_id = u.user_id
-    WHERE u.user_id = $driver_id AND u.role = 'driver'
-")->fetch_assoc();
+function hz_driver_profile_details($conn, int $driverId): ?array
+{
+    $result = $conn->query("
+        SELECT 
+            u.user_id,
+            u.username,
+            u.role,
+            u.password,
+            d.full_name,
+            d.email,
+            d.phone_number,
+            d.license_number,
+            d.license_expiry,
+            d.license_class,
+            d.license_front_image,
+            d.license_back_image,
+            d.years_experience,
+            d.emergency_contact,
+            d.emergency_phone,
+            d.address,
+            d.profile_picture,
+            v.vehicle_id,
+            v.vehicle_name,
+            v.license_plate,
+            v.vehicle_type,
+            v.vehicle_color,
+            v.status as vehicle_status
+        FROM users u
+        JOIN drivers d ON d.user_id = u.user_id
+        LEFT JOIN vehicles v ON v.driver_id = u.user_id
+        WHERE u.user_id = {$driverId} AND u.role = 'driver'
+    ");
 
-// Get driver statistics
-$driver_stats = $conn->query("
-    SELECT 
-        COUNT(*) as total_bookings,
-        COALESCE(SUM(fare_estimate), 0) as total_earnings
-    FROM bookings 
-    WHERE driver_id = $driver_id 
-    AND status = 'completed'
-")->fetch_assoc();
-
-// Compute average rating only if bookings.rating column exists
-$rating_column = $conn->query("SELECT COUNT(*) as cnt FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'bookings' AND COLUMN_NAME = 'rating'")->fetch_assoc();
-if (!empty($rating_column) && intval($rating_column['cnt']) > 0) {
-    $avg_row = $conn->query("SELECT AVG(rating) as avg_rating FROM bookings WHERE driver_id = $driver_id AND status = 'completed'")->fetch_assoc();
-    $driver_stats['avg_rating'] = $avg_row['avg_rating'] !== null ? floatval($avg_row['avg_rating']) : 0;
-} else {
-    $driver_stats['avg_rating'] = 0;
+    return $result ? $result->fetch_assoc() : null;
 }
+
+function hz_driver_profile_stats($conn, int $driverId): array
+{
+    $defaults = [
+        'total_bookings' => 0,
+        'total_earnings' => 0,
+        'avg_rating' => 0,
+    ];
+
+    $result = $conn->query("
+        SELECT 
+            COUNT(*) as total_bookings,
+            COALESCE(SUM(fare_estimate), 0) as total_earnings,
+            COALESCE(AVG(rating), 0) as avg_rating
+        FROM bookings 
+        WHERE driver_id = {$driverId}
+          AND status = 'completed'
+    ");
+
+    if (!$result) {
+        return $defaults;
+    }
+
+    return array_merge($defaults, $result->fetch_assoc() ?: []);
+}
+
+$driver_details = hz_driver_profile_details($conn, intval($driver_id));
+if (!$driver_details) {
+    echo '<div class="alert alert-error">Driver profile could not be loaded. Please log out and sign in again.</div>';
+    require_once 'footer.php';
+    exit;
+}
+
+$driver_stats = hz_driver_profile_stats($conn, intval($driver_id));
 
 function handle_driver_image_upload($fieldName, $existingPath, $prefix, &$error_message)
 {
@@ -199,36 +218,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 logCRUD($conn, $driver_id, 'UPDATE', 'drivers', $driver_id, 'Driver updated profile information');
 
                 // Refresh driver details from joined users+drivers+vehicles view
-                $driver_details = $conn->query("
-                    SELECT 
-                        u.user_id,
-                        u.username,
-                        u.role,
-                        u.password,
-                        d.full_name,
-                        d.email,
-                        d.phone_number,
-                        d.license_number,
-                        d.license_expiry,
-                        d.license_class,
-                        d.license_front_image,
-                        d.license_back_image,
-                        d.years_experience,
-                        d.emergency_contact,
-                        d.emergency_phone,
-                        d.address,
-                        d.profile_picture,
-                        v.vehicle_id,
-                        v.vehicle_name,
-                        v.license_plate,
-                        v.vehicle_type,
-                        v.vehicle_color,
-                        v.status as vehicle_status
-                    FROM users u
-                    JOIN drivers d ON d.user_id = u.user_id
-                    LEFT JOIN vehicles v ON v.driver_id = u.user_id
-                    WHERE u.user_id = $driver_id AND u.role = 'driver'
-                ")->fetch_assoc();
+                $driver_details = hz_driver_profile_details($conn, intval($driver_id)) ?: $driver_details;
 
             } else {
                 $error_message = "Failed to update profile: " . $conn->error;
@@ -273,36 +263,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Refresh driver details
-$driver_details = $conn->query("
-    SELECT 
-        u.user_id,
-        u.username,
-        u.role,
-        u.password,
-        d.full_name,
-        d.email,
-        d.phone_number,
-        d.license_number,
-        d.license_expiry,
-        d.license_class,
-        d.license_front_image,
-        d.license_back_image,
-        d.years_experience,
-        d.emergency_contact,
-        d.emergency_phone,
-        d.address,
-        d.profile_picture,
-        v.vehicle_id,
-        v.vehicle_name,
-        v.license_plate,
-        v.vehicle_type,
-        v.vehicle_color,
-        v.status as vehicle_status
-    FROM users u
-    JOIN drivers d ON d.user_id = u.user_id
-    LEFT JOIN vehicles v ON v.driver_id = u.user_id
-    WHERE u.user_id = $driver_id AND u.role = 'driver'
-")->fetch_assoc();
+$driver_details = hz_driver_profile_details($conn, intval($driver_id)) ?: $driver_details;
 ?>
 
 <div class="dashboard-header">

@@ -6,14 +6,23 @@ if (!headers_sent() && session_status() !== PHP_SESSION_ACTIVE) {
 // Check if user is logged in and is a driver
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'driver') {
     // If this is an AJAX request, return JSON so client-side code can handle it
-    if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
+    $acceptHeader = $_SERVER['HTTP_ACCEPT'] ?? '';
+    $requestPath = $_SERVER['REQUEST_URI'] ?? '';
+    $wantsJson = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+        || stripos($acceptHeader, 'application/json') !== false
+        || strpos($requestPath, '/api/') !== false;
+
+    if ($wantsJson) {
         header('Content-Type: application/json', true, 401);
         echo json_encode(['success' => false, 'message' => 'Not authenticated or not a driver']);
         exit();
     }
+
     if (!headers_sent()) {
-        header("Location: ../login/login.php");
+        header('Location: ../login/login.php', true, 302);
     }
+
+    echo '<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=../login/login.php"><title>Redirecting</title></head><body><p>Redirecting to login...</p><script>window.location.replace("../login/login.php");</script></body></html>';
     exit();
 }
 
@@ -77,8 +86,9 @@ if (!$driver_data) {
     session_unset();
     session_destroy();
     if (!headers_sent()) {
-        header("Location: ../login/login.php");
+        header('Location: ../login/login.php', true, 302);
     }
+    echo '<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=../login/login.php"><title>Redirecting</title></head><body><p>Driver account not found. Redirecting to login...</p><script>window.location.replace("../login/login.php");</script></body></html>';
     exit();
 }
 
