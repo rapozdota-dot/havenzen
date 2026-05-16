@@ -1,5 +1,7 @@
 <?php
-session_start();
+if (!headers_sent() && session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
 
 // Check if user is logged in and is a driver
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'driver') {
@@ -9,7 +11,9 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'driver') {
         echo json_encode(['success' => false, 'message' => 'Not authenticated or not a driver']);
         exit();
     }
-    header("Location: ../login/login.php");
+    if (!headers_sent()) {
+        header("Location: ../login/login.php");
+    }
     exit();
 }
 

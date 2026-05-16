@@ -17,6 +17,13 @@ if ($databaseParts && in_array($databaseParts['scheme'] ?? '', ['postgres', 'pos
     $password = isset($databaseParts['pass']) ? urldecode($databaseParts['pass']) : '';
     $dbname = isset($databaseParts['path']) ? ltrim($databaseParts['path'], '/') : 'havenzen_db';
     $dbport = intval($databaseParts['port'] ?? 3306);
+    $conn = new mysqli($servername, $username, $password, $dbname, $dbport);
+
+    if ($conn->connect_error) {
+        die('Connection failed: ' . $conn->connect_error);
+    }
+
+    $conn->set_charset('utf8mb4');
 } else {
     $servername = getenv('DB_HOST') ?: getenv('MYSQLHOST') ?: 'localhost';
     $username = getenv('DB_USER') ?: getenv('MYSQLUSER') ?: 'root';

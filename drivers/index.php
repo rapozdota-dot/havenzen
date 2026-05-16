@@ -27,7 +27,8 @@ $today_earnings_result = $conn->query("
     WHERE driver_id = $earnings_driver_id 
     AND DATE(earning_date) = '$today_date'
     AND status = 'pending'
-")->fetch_assoc();
+");
+$today_earnings_result = $today_earnings_result ? $today_earnings_result->fetch_assoc() : ['total' => 0];
 $today_earnings = $today_earnings_result['total'] ?? 0;
 
 // Get weekly earnings
@@ -37,7 +38,8 @@ $weekly_earnings_result = $conn->query("
     WHERE driver_id = $earnings_driver_id 
     AND YEARWEEK(earning_date, 1) = YEARWEEK('$today_date', 1)
     AND status = 'pending'
-")->fetch_assoc();
+");
+$weekly_earnings_result = $weekly_earnings_result ? $weekly_earnings_result->fetch_assoc() : ['total' => 0];
 $weekly_earnings = $weekly_earnings_result['total'] ?? 0;
 
 // Get vehicle information - check if we already have it from auth.php

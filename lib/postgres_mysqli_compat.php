@@ -268,8 +268,8 @@ class PgCompatConnection
         $sql = preg_replace('/DATE_SUB\s*\(\s*CURRENT_TIMESTAMP\s*,\s*INTERVAL\s+([0-9]+)\s+(MINUTE|HOUR|DAY|WEEK|MONTH)\s*\)/i', "(CURRENT_TIMESTAMP - interval '$1 $2')", $sql);
         $sql = preg_replace('/DATE_ADD\s*\(\s*CURRENT_TIMESTAMP\s*,\s*INTERVAL\s+([0-9]+)\s+(MINUTE|HOUR|DAY|WEEK|MONTH)\s*\)/i', "(CURRENT_TIMESTAMP + interval '$1 $2')", $sql);
         $sql = preg_replace("/DATE_SUB\s*\(\s*'([^']+)'\s*,\s*INTERVAL\s+([0-9]+)\s+(DAY|WEEK|MONTH)\s*\)/i", "(DATE '$1' - interval '$2 $3')", $sql);
-        $sql = preg_replace('/YEARWEEK\s*\(\s*([^)]+?)\s*,\s*1\s*\)/i', "to_char($1, 'IYYYIW')::integer", $sql);
-        $sql = preg_replace('/DAYNAME\s*\(\s*([^)]+?)\s*\)/i', "trim(to_char($1, 'Day'))", $sql);
+        $sql = preg_replace('/YEARWEEK\s*\(\s*([^)]+?)\s*,\s*1\s*\)/i', "to_char(($1)::date, 'IYYYIW')::integer", $sql);
+        $sql = preg_replace('/DAYNAME\s*\(\s*([^)]+?)\s*\)/i', "trim(to_char(($1)::date, 'Day'))", $sql);
         $sql = preg_replace('/\bDATE\s*\(([^()]+)\)/i', 'CAST($1 AS DATE)', $sql);
 
         $sql = preg_replace('/\b(is_online|is_active|is_read)\s*=\s*1\b/i', '$1 = true', $sql);
