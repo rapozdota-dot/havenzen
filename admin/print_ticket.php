@@ -22,9 +22,6 @@ if (isset($_GET['direct_print'])) {
     if ($_GET['direct_print'] === 'success') {
         $statusType = 'success';
         $statusMessage = 'Direct thermal print sent to ' . THERMAL_PRINTER_NAME . '.';
-    } elseif ($_GET['direct_print'] === 'browser_fallback') {
-        $statusType = 'success';
-        $statusMessage = trim((string) ($_GET['message'] ?? 'Opening browser print. Select the thermal printer installed on this laptop.'));
     } elseif ($_GET['direct_print'] === 'error') {
         $statusType = 'error';
         $statusMessage = trim((string) ($_GET['message'] ?? 'Direct thermal print failed.'));
@@ -305,7 +302,7 @@ if (($_GET['format'] ?? '') === 'txt') {
     <?php endif; ?>
 
     <div class="print-note">
-        On the deployed site, printing uses this laptop browser and its installed printer driver. Select the thermal printer in the print dialog.
+        Direct thermal print uses the local Havenzen print bridge when the web app is deployed. Keep <strong>start_thermal_print_bridge.bat</strong> running on the printer laptop.
     </div>
 
     <div class="ticket">
