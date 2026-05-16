@@ -5,6 +5,45 @@ $page_title = 'Routes Management';
 
 $action = $_POST['action'] ?? null;
 
+function hz_post_int_or_null(string $key): ?int
+{
+    $value = $_POST[$key] ?? '';
+    return $value === '' ? null : max(0, intval($value));
+}
+
+function hz_apply_route_assignment($conn, int $routeId, ?int $returnRouteId, ?int $vehicleId, ?int $driverId, &$message, &$error): void
+{
+    if ($routeId <= 0 || ($vehicleId === null && $driverId === null)) {
+        return;
+    }
+
+    if ($vehicleId === null && $driverId !== null) {
+        $vehicleResult = $conn->query("SELECT vehicle_id FROM vehicles WHERE driver_id = {$driverId} ORDER BY vehicle_name ASC LIMIT 1");
+        if ($vehicleResult && $vehicleResult->num_rows > 0) {
+            $vehicleId = intval($vehicleResult->fetch_assoc()['vehicle_id'] ?? 0);
+        } else {
+            $error = trim(($error ?? '') . ' Route saved, but that driver has no assigned vehicle yet.');
+            return;
+        }
+    }
+
+    if (!$vehicleId) {
+        return;
+    }
+
+    if ($driverId !== null) {
+        $conn->query("UPDATE vehicles SET driver_id = NULL WHERE driver_id = {$driverId} AND vehicle_id <> {$vehicleId}");
+    }
+
+    $driverSql = $driverId === null ? '' : ", driver_id = {$driverId}";
+    $returnSql = $returnRouteId === null ? '' : ", return_route_id = {$returnRouteId}";
+    if ($conn->query("UPDATE vehicles SET route_id = {$routeId}{$returnSql}{$driverSql} WHERE vehicle_id = {$vehicleId}")) {
+        $message = trim(($message ?? '') . ' Route assignment updated.');
+    } else {
+        $error = trim(($error ?? '') . ' Route assignment failed: ' . $conn->error);
+    }
+}
+
 if ($action === 'add_route') {
     $origin = trim($_POST['origin'] ?? '');
     $destination = trim($_POST['destination'] ?? '');
@@ -12,6 +51,8 @@ if ($action === 'add_route') {
     $distance_km = floatval($_POST['distance_km'] ?? 0);
     $travel_minutes = max(0, intval($_POST['travel_minutes'] ?? 0));
     $create_return = isset($_POST['create_return']);
+    $assigned_vehicle_id = hz_post_int_or_null('assignment_vehicle_id');
+    $assigned_driver_id = hz_post_int_or_null('assignment_driver_id');
 
     if ($origin === '' || $destination === '') {
         $error = 'Please provide both origin and destination.';
@@ -31,6 +72,7 @@ if ($action === 'add_route') {
         if ($conn->query($sql)) {
             $message = 'Route added successfully.';
             $routeId = $conn->insert_id;
+            $returnRouteId = null;
             logCRUD($conn, $_SESSION['user_id'] ?? null, 'CREATE', 'routes', $routeId, 'Added route: ' . $route_name_raw);
 
             if ($create_return) {
@@ -47,12 +89,15 @@ if ($action === 'add_route') {
                 ";
 
                 if ($conn->query($sqlReturn)) {
-                    logCRUD($conn, $_SESSION['user_id'] ?? null, 'CREATE', 'routes', $conn->insert_id, 'Added return route: ' . $return_route_name_raw);
+                    $returnRouteId = $conn->insert_id;
+                    logCRUD($conn, $_SESSION['user_id'] ?? null, 'CREATE', 'routes', $returnRouteId, 'Added return route: ' . $return_route_name_raw);
                     $message .= ' Return route created as well.';
                 } else {
                     $error = 'Route added, but failed to create return route: ' . $conn->error;
                 }
             }
+
+            hz_apply_route_assignment($conn, intval($routeId), $returnRouteId, $assigned_vehicle_id, $assigned_driver_id, $message, $error);
         } else {
             $error = 'Error adding route: ' . $conn->error;
         }
@@ -66,6 +111,8 @@ if ($action === 'update_route') {
     $fare = floatval($_POST['fare'] ?? 0);
     $distance_km = floatval($_POST['distance_km'] ?? 0);
     $travel_minutes = max(0, intval($_POST['travel_minutes'] ?? 0));
+    $assigned_vehicle_id = hz_post_int_or_null('assignment_vehicle_id');
+    $assigned_driver_id = hz_post_int_or_null('assignment_driver_id');
 
     if ($route_id <= 0 || $origin === '' || $destination === '') {
         $error = 'Invalid route data. Origin and destination are required.';
@@ -90,6 +137,7 @@ if ($action === 'update_route') {
         if ($conn->query($sql)) {
             $message = 'Route updated successfully.';
             logCRUD($conn, $_SESSION['user_id'] ?? null, 'UPDATE', 'routes', $route_id, 'Updated route: ' . $route_name_raw);
+            hz_apply_route_assignment($conn, $route_id, null, $assigned_vehicle_id, $assigned_driver_id, $message, $error);
         } else {
             $error = 'Error updating route: ' . $conn->error;
         }
@@ -123,7 +171,59 @@ if ($routeResult) {
             $row['origin'] = $stops[0]['name'] ?? '';
             $row['destination'] = $stops[count($stops) - 1]['name'] ?? '';
         }
+        $row['assignment_vehicle_id'] = '';
+        $row['assignment_driver_id'] = '';
+        $row['assignment_label'] = '<em style="color:#777;">Unassigned</em>';
+
+        $routeId = intval($row['route_id']);
+        $assignmentResult = $conn->query("
+            SELECT v.vehicle_id, v.vehicle_name, v.license_plate, v.driver_id, d.full_name AS driver_name
+            FROM vehicles v
+            LEFT JOIN drivers d ON d.user_id = v.driver_id
+            WHERE v.route_id = {$routeId}
+            ORDER BY v.vehicle_name ASC
+        ");
+        if ($assignmentResult && $assignmentResult->num_rows > 0) {
+            $assignmentParts = [];
+            while ($assignment = $assignmentResult->fetch_assoc()) {
+                if ($row['assignment_vehicle_id'] === '') {
+                    $row['assignment_vehicle_id'] = intval($assignment['vehicle_id']);
+                    $row['assignment_driver_id'] = $assignment['driver_id'] ? intval($assignment['driver_id']) : '';
+                }
+                $vehicleLabel = trim(($assignment['vehicle_name'] ?? '') . ' (' . ($assignment['license_plate'] ?? 'No plate') . ')');
+                $driverLabel = $assignment['driver_name'] ? ' - ' . $assignment['driver_name'] : ' - no driver';
+                $assignmentParts[] = htmlspecialchars($vehicleLabel . $driverLabel);
+            }
+            $row['assignment_label'] = implode('<br>', $assignmentParts);
+        }
         $routes[] = $row;
+    }
+}
+
+$drivers_list = [];
+$driversResult = $conn->query("
+    SELECT u.user_id, d.full_name
+    FROM users u
+    JOIN drivers d ON d.user_id = u.user_id
+    WHERE u.role = 'driver'
+    ORDER BY d.full_name ASC
+");
+if ($driversResult) {
+    while ($driver = $driversResult->fetch_assoc()) {
+        $drivers_list[] = $driver;
+    }
+}
+
+$vehicles_list = [];
+$vehiclesResult = $conn->query("
+    SELECT v.vehicle_id, v.vehicle_name, v.license_plate, v.driver_id, d.full_name AS driver_name
+    FROM vehicles v
+    LEFT JOIN drivers d ON d.user_id = v.driver_id
+    ORDER BY v.vehicle_name ASC
+");
+if ($vehiclesResult) {
+    while ($vehicle = $vehiclesResult->fetch_assoc()) {
+        $vehicles_list[] = $vehicle;
     }
 }
 
@@ -176,6 +276,38 @@ require_once 'header.php';
                 <input type="number" id="travel_minutes_modal" name="travel_minutes" min="0" required placeholder="e.g., 75">
             </div>
 
+            <div class="form-group">
+                <label for="assignment_vehicle_id_modal">Vehicle Taking This Route</label>
+                <select id="assignment_vehicle_id_modal" name="assignment_vehicle_id">
+                    <option value="">Select Vehicle (Optional)</option>
+                    <?php foreach ($vehicles_list as $vehicle): ?>
+                        <option value="<?php echo intval($vehicle['vehicle_id']); ?>">
+                            <?php
+                            $vehicleLabel = $vehicle['vehicle_name'] . ' (' . $vehicle['license_plate'] . ')';
+                            if (!empty($vehicle['driver_name'])) {
+                                $vehicleLabel .= ' - ' . $vehicle['driver_name'];
+                            }
+                            echo htmlspecialchars($vehicleLabel);
+                            ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <small>Selecting a vehicle assigns this route to that vehicle.</small>
+            </div>
+
+            <div class="form-group">
+                <label for="assignment_driver_id_modal">Driver Taking This Route</label>
+                <select id="assignment_driver_id_modal" name="assignment_driver_id">
+                    <option value="">Keep Vehicle Driver / Select Driver (Optional)</option>
+                    <?php foreach ($drivers_list as $driver): ?>
+                        <option value="<?php echo intval($driver['user_id']); ?>">
+                            <?php echo htmlspecialchars($driver['full_name']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <small>If both vehicle and driver are selected, that driver will be moved to this vehicle.</small>
+            </div>
+
             <div class="form-group" style="display:flex; align-items:center; gap:10px;">
                 <input type="checkbox" id="create_return_modal" name="create_return" style="width:auto; margin:0;">
                 <label for="create_return_modal" style="margin:0;">Create return route (vice versa)</label>
@@ -221,6 +353,36 @@ require_once 'header.php';
                 <input type="number" id="edit_travel_minutes" name="travel_minutes" min="0" required>
             </div>
 
+            <div class="form-group">
+                <label for="edit_assignment_vehicle_id">Vehicle Taking This Route</label>
+                <select id="edit_assignment_vehicle_id" name="assignment_vehicle_id">
+                    <option value="">No vehicle change</option>
+                    <?php foreach ($vehicles_list as $vehicle): ?>
+                        <option value="<?php echo intval($vehicle['vehicle_id']); ?>">
+                            <?php
+                            $vehicleLabel = $vehicle['vehicle_name'] . ' (' . $vehicle['license_plate'] . ')';
+                            if (!empty($vehicle['driver_name'])) {
+                                $vehicleLabel .= ' - ' . $vehicle['driver_name'];
+                            }
+                            echo htmlspecialchars($vehicleLabel);
+                            ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="edit_assignment_driver_id">Driver Taking This Route</label>
+                <select id="edit_assignment_driver_id" name="assignment_driver_id">
+                    <option value="">No driver change</option>
+                    <?php foreach ($drivers_list as $driver): ?>
+                        <option value="<?php echo intval($driver['user_id']); ?>">
+                            <?php echo htmlspecialchars($driver['full_name']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
             <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:10px;">
                 <button type="button" class="btn btn-secondary" id="closeEditRoute">Cancel</button>
                 <button type="submit" class="btn btn-primary">Save Changes</button>
@@ -254,14 +416,15 @@ require_once 'header.php';
                 <th style="width: 10%;">Distance</th>
                 <th style="width: 10%;">Travel Time</th>
                 <th style="width: 10%;">Stops</th>
-                <th style="width: 15%;">Created Date</th>
+                <th style="width: 15%;">Assigned Vehicle / Driver</th>
+                <th style="width: 12%;">Created Date</th>
                 <th style="width: 18%;">Actions</th>
             </tr>
         </thead>
         <tbody>
             <?php if (!$routes): ?>
                 <tr>
-                    <td colspan="8">No routes found.</td>
+                    <td colspan="9">No routes found.</td>
                 </tr>
             <?php endif; ?>
             <?php foreach ($routes as $route): ?>
@@ -272,6 +435,7 @@ require_once 'header.php';
                     <td><?php echo number_format((float) $route['distance_km'], 2); ?> km</td>
                     <td><?php echo intval($route['travel_minutes'] ?? 0); ?> mins</td>
                     <td><?php echo intval($route['stop_count']); ?> stops</td>
+                    <td><?php echo $route['assignment_label']; ?></td>
                     <td><?php echo date('M j, Y', strtotime($route['created_at'])); ?></td>
                     <td style="white-space: nowrap;">
                         <button
@@ -283,6 +447,8 @@ require_once 'header.php';
                             data-route-fare="<?php echo htmlspecialchars($route['fare']); ?>"
                             data-route-distance="<?php echo htmlspecialchars($route['distance_km']); ?>"
                             data-route-travel-minutes="<?php echo intval($route['travel_minutes'] ?? 0); ?>"
+                            data-route-assignment-vehicle-id="<?php echo htmlspecialchars((string) $route['assignment_vehicle_id']); ?>"
+                            data-route-assignment-driver-id="<?php echo htmlspecialchars((string) $route['assignment_driver_id']); ?>"
                         >
                             Edit
                         </button>
@@ -343,6 +509,8 @@ document.querySelectorAll('.edit-route-btn').forEach(function (button) {
         document.getElementById('edit_fare').value = this.dataset.routeFare || '';
         document.getElementById('edit_distance').value = this.dataset.routeDistance || '';
         document.getElementById('edit_travel_minutes').value = this.dataset.routeTravelMinutes || '';
+        document.getElementById('edit_assignment_vehicle_id').value = this.dataset.routeAssignmentVehicleId || '';
+        document.getElementById('edit_assignment_driver_id').value = this.dataset.routeAssignmentDriverId || '';
         document.getElementById('editRouteModal').style.display = 'flex';
     });
 });

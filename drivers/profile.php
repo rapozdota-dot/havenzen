@@ -75,6 +75,25 @@ if (!$driver_details) {
 
 $driver_stats = hz_driver_profile_stats($conn, intval($driver_id));
 
+function hz_driver_upload_path_exists(?string $path): bool
+{
+    $path = trim((string) $path);
+    if ($path === '') {
+        return false;
+    }
+
+    if (preg_match('/^https?:\/\//i', $path)) {
+        return true;
+    }
+
+    $normalized = str_replace('\\', '/', $path);
+    if (strpos($normalized, '../') === 0) {
+        return is_file(__DIR__ . '/' . $normalized);
+    }
+
+    return is_file(dirname(__DIR__) . '/' . ltrim($normalized, '/'));
+}
+
 function handle_driver_image_upload($fieldName, $existingPath, $prefix, &$error_message)
 {
     if (!isset($_FILES[$fieldName]) || $_FILES[$fieldName]['error'] === UPLOAD_ERR_NO_FILE) {
@@ -289,7 +308,7 @@ $driver_details = hz_driver_profile_details($conn, intval($driver_id)) ?: $drive
     <div class="profile-sidebar">
         <div class="profile-card">
             <div class="profile-avatar">
-                <?php if (!empty($driver_details['profile_picture'])): ?>
+                <?php if (hz_driver_upload_path_exists($driver_details['profile_picture'] ?? '')): ?>
                     <img src="<?php echo htmlspecialchars($driver_details['profile_picture']); ?>" alt="Profile Picture" class="avatar-image">
                 <?php else: ?>
                     <div class="avatar-placeholder">
@@ -426,7 +445,7 @@ $driver_details = hz_driver_profile_details($conn, intval($driver_id)) ?: $drive
 
                     <div class="form-group">
                         <label for="license_front_image">Driver License Image - Front</label>
-                        <?php if (!empty($driver_details['license_front_image'])): ?>
+                        <?php if (hz_driver_upload_path_exists($driver_details['license_front_image'] ?? '')): ?>
                             <div style="margin-bottom: 0.5rem;">
                                 <a href="<?php echo htmlspecialchars($driver_details['license_front_image']); ?>" target="_blank" rel="noopener">
                                     View current front image
@@ -440,7 +459,7 @@ $driver_details = hz_driver_profile_details($conn, intval($driver_id)) ?: $drive
 
                     <div class="form-group">
                         <label for="license_back_image">Driver License Image - Back</label>
-                        <?php if (!empty($driver_details['license_back_image'])): ?>
+                        <?php if (hz_driver_upload_path_exists($driver_details['license_back_image'] ?? '')): ?>
                             <div style="margin-bottom: 0.5rem;">
                                 <a href="<?php echo htmlspecialchars($driver_details['license_back_image']); ?>" target="_blank" rel="noopener">
                                     View current back image

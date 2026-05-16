@@ -3,6 +3,27 @@ require_once 'auth.php';
 $page_title = "Driver Management";
 require_once 'header.php';
 
+function hz_admin_upload_path_exists(?string $path): bool
+{
+    $path = trim((string) $path);
+    if ($path === '') {
+        return false;
+    }
+
+    if (preg_match('/^https?:\/\//i', $path)) {
+        return true;
+    }
+
+    $normalized = ltrim(str_replace('../', '', str_replace('\\', '/', $path)), '/');
+    return is_file(dirname(__DIR__) . '/' . $normalized);
+}
+
+function hz_admin_upload_href(?string $path): string
+{
+    $normalized = ltrim(str_replace('../', '', str_replace('\\', '/', (string) $path)), '/');
+    return '../' . $normalized;
+}
+
 // handle message/error display (left in place in case other flows set them)
 ?>
 
@@ -63,13 +84,15 @@ require_once 'header.php';
                 <td><?php echo htmlspecialchars($driver['full_name']); ?></td>
                 <td><?php echo htmlspecialchars($driver['phone_number']); ?></td>
                 <td>
-                    <?php if (!empty($driver['license_front_image'])): ?>
-                        <a href="../<?php echo htmlspecialchars(ltrim(str_replace('../', '', $driver['license_front_image']), '/')); ?>" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">Front</a>
+                    <?php $hasFrontImage = hz_admin_upload_path_exists($driver['license_front_image'] ?? ''); ?>
+                    <?php $hasBackImage = hz_admin_upload_path_exists($driver['license_back_image'] ?? ''); ?>
+                    <?php if ($hasFrontImage): ?>
+                        <a href="<?php echo htmlspecialchars(hz_admin_upload_href($driver['license_front_image'])); ?>" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">Front</a>
                     <?php endif; ?>
-                    <?php if (!empty($driver['license_back_image'])): ?>
-                        <a href="../<?php echo htmlspecialchars(ltrim(str_replace('../', '', $driver['license_back_image']), '/')); ?>" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">Back</a>
+                    <?php if ($hasBackImage): ?>
+                        <a href="<?php echo htmlspecialchars(hz_admin_upload_href($driver['license_back_image'])); ?>" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">Back</a>
                     <?php endif; ?>
-                    <?php if (empty($driver['license_front_image']) && empty($driver['license_back_image'])): ?>
+                    <?php if (!$hasFrontImage && !$hasBackImage): ?>
                         <span style="color:#777;">Not uploaded</span>
                     <?php endif; ?>
                 </td>

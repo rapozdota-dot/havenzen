@@ -314,7 +314,7 @@ function updateVehicleMap(vehicles) {
                     <h4 style="margin: 0 0 8px 0; color: #333;">${vehicle.vehicle_name}</h4>
                     <p style="margin: 0 0 4px 0;"><strong>Plate:</strong> ${vehicle.license_plate}</p>
                     <p style="margin: 0 0 4px 0;"><strong>Status:</strong> ${vehicle.status}</p>
-                    <p style="margin: 0;"><strong>Last Update:</strong> ${vehicle.last_update}s ago</p>
+                    <p style="margin: 0;"><strong>GPS:</strong> ${vehicle.last_update === null ? 'No update yet' : `${vehicle.last_update}s ago`}</p>
                 </div>
             `
         });
@@ -334,19 +334,25 @@ function updateVehicleMap(vehicles) {
             firstDataLoad = false;
         }
 
-        document.getElementById('vehicle-count').textContent = vehicles.length;
-        updateVehicleList(vehicles);
+        const locatedCount = vehicles.filter(vehicle => vehicle.has_location).length;
+        document.getElementById('vehicle-count').textContent = `${locatedCount}/${vehicles.length}`;
+    } else {
+        document.getElementById('vehicle-count').textContent = `0/${vehicles.length}`;
     }
+
+    updateVehicleList(vehicles);
 }
 
 function updateVehicleList(vehicles) {
     let html = '';
     vehicles.forEach(vehicle => {
-        const status = (vehicle.latitude && vehicle.longitude) ? '📍 Live Tracking' : '⚠️ No GPS';
-        const statusColor = (vehicle.latitude && vehicle.longitude) ? '#28a745' : '#ffc107';
+        const hasLocation = vehicle.has_location && vehicle.latitude !== null && vehicle.longitude !== null;
+        const status = hasLocation ? 'Live Tracking' : 'No GPS yet';
+        const statusColor = hasLocation ? '#28a745' : '#ffc107';
+        const clickAction = hasLocation ? ` onclick="centerOnVehicle(${vehicle.vehicle_id})"` : '';
+        const cursor = hasLocation ? 'pointer' : 'default';
         html += `
-        <div class="vehicle-item" style="padding: 10px 12px; border-bottom: 1px solid #eee; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" 
-             onclick="centerOnVehicle(${vehicle.vehicle_id})">
+        <div class="vehicle-item" style="padding: 10px 12px; border-bottom: 1px solid #eee; cursor: ${cursor}; display: flex; justify-content: space-between; align-items: center;"${clickAction}>
             <div style="flex-grow: 1;">
                 <strong style="display: flex; align-items: center; gap: 8px;">
                     <i class="fas fa-bus" style="color: #2196F3;"></i>
@@ -374,12 +380,12 @@ function centerOnVehicle(vehicleId) {
     }
 }
 
-// Auto-refresh every 10 seconds
+// Auto-refresh every 8 seconds
 setInterval(() => {
     if (mapInitialized) {
         loadVehicleLocations();
     }
-}, 10000);
+}, 8000);
 </script>
 
 <?php require_once 'footer.php'; ?>

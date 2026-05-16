@@ -534,7 +534,13 @@ $google_maps_script_url = google_maps_script_url(null, ['places', 'geometry']);
                 .then(data => {
                     if (data.success && data.vehicles && data.vehicles.length > 0) {
                         const loc = data.vehicles[0];
-                        vehicleLocation = {lat: parseFloat(loc.latitude), lng: parseFloat(loc.longitude)};
+                        const vehicleLat = parseFloat(loc.latitude);
+                        const vehicleLng = parseFloat(loc.longitude);
+                        if (isNaN(vehicleLat) || isNaN(vehicleLng)) {
+                            return;
+                        }
+
+                        vehicleLocation = {lat: vehicleLat, lng: vehicleLng};
                         updateVehicleMarker();
                         
                         if (!bookingData.pickup_lat || !bookingData.pickup_lng) return;

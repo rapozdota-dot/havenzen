@@ -3,7 +3,7 @@ require_once dirname(__DIR__) . '/config.php';
 header('Content-Type: application/json');
 
 try {
-    // Get active vehicles with their latest locations and assigned drivers
+    // Get every vehicle with its latest known location and assigned driver.
     $vehicle_id_filter = isset($_GET['vehicle_id']) ? intval($_GET['vehicle_id']) : null;
     
     $query = "
@@ -14,48 +14,55 @@ try {
             v.status,
             d.full_name as driver_name,
             r.route_name,
-            l.latitude,
-            l.longitude,
+            COALESCE(l.latitude, ST_X(d.current_location)) as latitude,
+            COALESCE(l.longitude, ST_Y(d.current_location)) as longitude,
             l.timestamp,
-            TIMESTAMPDIFF(SECOND, l.timestamp, NOW()) as last_update
+            CASE
+                WHEN l.timestamp IS NULL THEN NULL
+                ELSE TIMESTAMPDIFF(SECOND, l.timestamp, NOW())
+            END as last_update
         FROM vehicles v
         LEFT JOIN drivers d ON v.driver_id = d.user_id
         LEFT JOIN routes r ON v.route_id = r.route_id
-        LEFT JOIN locations l ON v.vehicle_id = l.vehicle_id
-        WHERE v.driver_id IS NOT NULL
+        LEFT JOIN (
+            SELECT l1.vehicle_id, l1.latitude, l1.longitude, l1.timestamp
+            FROM locations l1
+            INNER JOIN (
+                SELECT vehicle_id, MAX(timestamp) as latest_timestamp
+                FROM locations
+                GROUP BY vehicle_id
+            ) latest ON latest.vehicle_id = l1.vehicle_id
+                    AND latest.latest_timestamp = l1.timestamp
+        ) l ON v.vehicle_id = l.vehicle_id
+        WHERE 1 = 1
     ";
 
     if ($vehicle_id_filter) {
         $query .= " AND v.vehicle_id = $vehicle_id_filter";
     }
 
-    $query .= "
-        AND l.timestamp = (
-            SELECT MAX(timestamp) 
-            FROM locations 
-            WHERE vehicle_id = v.vehicle_id
-        )
-        ORDER BY v.vehicle_name
-    ";
+    $query .= " ORDER BY v.vehicle_name";
     
     $result = $conn->query($query);
+    if (!$result) {
+        throw new Exception($conn->error ?: 'Unable to load vehicle locations');
+    }
     
     $vehicles = [];
     while ($row = $result->fetch_assoc()) {
-        // Only include vehicles with valid coordinates
-        if (!empty($row['latitude']) && !empty($row['longitude'])) {
-            $vehicles[] = [
-                'vehicle_id' => $row['vehicle_id'],
-                'vehicle_name' => $row['vehicle_name'],
-                'license_plate' => $row['license_plate'],
-                'driver_name' => $row['driver_name'],
-                'route_name' => $row['route_name'],
-                'latitude' => (float)$row['latitude'],
-                'longitude' => (float)$row['longitude'],
-                'status' => $row['status'],
-                'last_update' => $row['last_update']
-            ];
-        }
+        $hasCoordinates = $row['latitude'] !== null && $row['longitude'] !== null && $row['latitude'] !== '' && $row['longitude'] !== '';
+        $vehicles[] = [
+            'vehicle_id' => intval($row['vehicle_id']),
+            'vehicle_name' => $row['vehicle_name'],
+            'license_plate' => $row['license_plate'],
+            'driver_name' => $row['driver_name'],
+            'route_name' => $row['route_name'],
+            'latitude' => $hasCoordinates ? (float) $row['latitude'] : null,
+            'longitude' => $hasCoordinates ? (float) $row['longitude'] : null,
+            'status' => $row['status'],
+            'last_update' => $row['last_update'] === null ? null : intval($row['last_update']),
+            'has_location' => $hasCoordinates
+        ];
     }
     
     echo json_encode([

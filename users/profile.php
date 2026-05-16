@@ -2,6 +2,25 @@
 require_once 'auth.php';
 require_once 'header.php';
 
+function hz_user_upload_path_exists(?string $path): bool
+{
+    $path = trim((string) $path);
+    if ($path === '') {
+        return false;
+    }
+
+    if (preg_match('/^https?:\/\//i', $path)) {
+        return true;
+    }
+
+    $normalized = str_replace('\\', '/', $path);
+    if (strpos($normalized, '../') === 0) {
+        return is_file(__DIR__ . '/' . $normalized);
+    }
+
+    return is_file(dirname(__DIR__) . '/' . ltrim($normalized, '/'));
+}
+
 // Handle profile updates
 if (isset($_POST['action']) && $_POST['action'] === 'update_profile') {
     // Accept either combined `full_name` or separate `first_name` + `last_name`
@@ -126,7 +145,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'change_password') {
 <div class="profile-header">
     <div class="profile-card">
         <div class="profile-avatar">
-            <?php if (!empty($user_data['profile_picture'])): ?>
+            <?php if (hz_user_upload_path_exists($user_data['profile_picture'] ?? '')): ?>
                 <img src="<?php echo htmlspecialchars($user_data['profile_picture']); ?>" alt="Profile Picture" class="avatar-image">
             <?php else: ?>
                 <div class="avatar-placeholder">

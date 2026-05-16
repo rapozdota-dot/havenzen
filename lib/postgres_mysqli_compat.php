@@ -264,8 +264,8 @@ class PgCompatConnection
         $sql = preg_replace('/\bCURDATE\s*\(\s*\)/i', 'CURRENT_DATE', $sql);
         $sql = preg_replace('/\bNOW\s*\(\s*\)/i', 'CURRENT_TIMESTAMP', $sql);
         $sql = preg_replace('/\bPOINT\s*\(/i', 'point(', $sql);
-        $sql = preg_replace('/ST_X\s*\(\s*current_location\s*\)/i', 'current_location[0]', $sql);
-        $sql = preg_replace('/ST_Y\s*\(\s*current_location\s*\)/i', 'current_location[1]', $sql);
+        $sql = preg_replace('/ST_X\s*\(\s*([a-zA-Z_][a-zA-Z0-9_]*\.)?current_location\s*\)/i', '$1current_location[0]', $sql);
+        $sql = preg_replace('/ST_Y\s*\(\s*([a-zA-Z_][a-zA-Z0-9_]*\.)?current_location\s*\)/i', '$1current_location[1]', $sql);
         $sql = preg_replace('/TIMESTAMPDIFF\s*\(\s*SECOND\s*,\s*([^,]+?)\s*,\s*CURRENT_TIMESTAMP\s*\)/i', 'EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - $1))::integer', $sql);
         $sql = preg_replace('/DATE_SUB\s*\(\s*CURRENT_TIMESTAMP\s*,\s*INTERVAL\s+\?\s+HOUR\s*\)/i', "(CURRENT_TIMESTAMP - (? * interval '1 hour'))", $sql);
         $sql = preg_replace('/DATE_SUB\s*\(\s*CURRENT_TIMESTAMP\s*,\s*INTERVAL\s+([0-9]+)\s+(MINUTE|HOUR|DAY|WEEK|MONTH)\s*\)/i', "(CURRENT_TIMESTAMP - interval '$1 $2')", $sql);
