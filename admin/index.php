@@ -253,7 +253,7 @@ let vehicleMap;
 let vehicleMarkers = {};
 let mapInitialized = false;
 let firstDataLoad = true;
-const VEHICLE_REFRESH_MS = 8000;
+const VEHICLE_REFRESH_MS = 4000;
 const LIVE_LOCATION_SECONDS = 120;
 
 function initMap() {
@@ -277,7 +277,7 @@ function initMap() {
     }
 }
 
-function loadVehicleLocations() {
+function loadVehicleLocations(silent = false) {
     if (!mapInitialized) {
         return;
     }
@@ -286,9 +286,11 @@ function loadVehicleLocations() {
     const refreshText = document.getElementById('refresh-text');
     const refreshSpinner = document.getElementById('refresh-spinner');
 
-    refreshText.style.display = 'none';
-    refreshSpinner.style.display = 'inline';
-    refreshBtn.disabled = true;
+    if (!silent) {
+        refreshText.style.display = 'none';
+        refreshSpinner.style.display = 'inline';
+        refreshBtn.disabled = true;
+    }
 
     fetch('../api/vehicle_locations.php')
         .then(response => {
@@ -307,9 +309,11 @@ function loadVehicleLocations() {
             document.getElementById('map-status-text').textContent = 'Error: ' + error.message;
         })
         .finally(() => {
-            refreshText.style.display = 'inline';
-            refreshSpinner.style.display = 'none';
-            refreshBtn.disabled = false;
+            if (!silent) {
+                refreshText.style.display = 'inline';
+                refreshSpinner.style.display = 'none';
+                refreshBtn.disabled = false;
+            }
         });
 }
 
@@ -457,7 +461,7 @@ window.gm_authFailure = function() {
 
 setInterval(() => {
     if (mapInitialized) {
-        loadVehicleLocations();
+        loadVehicleLocations(true);
     }
 }, VEHICLE_REFRESH_MS);
 </script>

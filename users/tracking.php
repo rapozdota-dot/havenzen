@@ -315,7 +315,7 @@ require_once 'header.php';
                     <div class="eta-display">
                         <div class="label">Estimated Time to Pickup</div>
                         <div class="time" id="etaToPickup"><?php echo ($booking['latitude'] && $booking['longitude']) ? 'Calculating...' : 'Waiting for GPS'; ?></div>
-                        <span class="live-indicator">Updates every 10 seconds</span>
+                        <span class="live-indicator">Updates every 4 seconds</span>
                     </div>
                 <?php endif; ?>
             <?php endif; ?>
@@ -324,7 +324,7 @@ require_once 'header.php';
                 <div class="eta-display">
                     <div class="label">Estimated Time to Pickup</div>
                     <div class="time" id="etaToPickup"><?php echo ($booking['latitude'] && $booking['longitude']) ? 'Calculating...' : 'Waiting for GPS'; ?></div>
-                    <span class="live-indicator">Updates every 10 seconds</span>
+                    <span class="live-indicator">Updates every 4 seconds</span>
                 </div>
             <?php endif; ?>
 
@@ -508,7 +508,7 @@ require_once 'header.php';
 
             // Initialize vehicle tracking
             updateVehicleLocation();
-            updateInterval = setInterval(updateVehicleLocation, 10000); // Update every 10 seconds
+            updateInterval = setInterval(updateVehicleLocation, 4000);
         }
 
         function drawMainRoute() {
@@ -645,7 +645,7 @@ require_once 'header.php';
                 }
             });
 
-            // Poll passenger location periodically (every 10s)
+            // Poll passenger location periodically.
             passengerInterval = setInterval(function() {
                 navigator.geolocation.getCurrentPosition(function(position) {
                     passengerPosition = {lat: position.coords.latitude, lng: position.coords.longitude};
@@ -660,7 +660,7 @@ require_once 'header.php';
                         passengerMarker.setPosition(passengerPosition);
                     }
                 });
-            }, 10000);
+            }, 5000);
         }
 
         function updateETADisplay() {

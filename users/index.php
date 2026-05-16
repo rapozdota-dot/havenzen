@@ -7,7 +7,7 @@ $google_maps_script_url = google_maps_script_url('initMap', ['geometry']);
 
 <div class="dashboard-header">
     <h1>Live Vehicle Tracking</h1>
-    <p>Track available vehicles in real-time and see their current locations</p>
+    <p>Track all Havenzen vans in near real time, including last known locations when GPS is stale.</p>
 </div>
 
 <!-- Quick Stats -->
@@ -64,8 +64,8 @@ $google_maps_script_url = google_maps_script_url('initMap', ['geometry']);
 <!-- Live Map -->
 <div class="map-container">
     <div class="map-header">
-        <h3> Live Vehicle Locations</h3>
-        <p>Click on vehicle markers to see details and book rides</p>
+        <h3>Live Van Locations</h3>
+        <p>Click any van marker to see driver, route, plate number, and latest GPS age.</p>
     </div>
     <div class="map-content">
         <div id="vehicle-map" style="height: 550px; width: 100%; background: #f8f9fa; border-radius: 8px; overflow: hidden; position: relative;">
@@ -200,6 +200,8 @@ let vehicleMap;
 let vehicleMarkers = {};
 let mapInitialized = false;
 let firstDataLoad = true;
+const VEHICLE_REFRESH_MS = 4000;
+const LIVE_LOCATION_SECONDS = 120;
 
 function initMap() {
     try {
@@ -223,7 +225,7 @@ function initMap() {
     }
 }
 
-function loadVehicleLocations() {
+function loadVehicleLocations(silent = false) {
     if (!mapInitialized) {
         return;
     }
@@ -233,7 +235,7 @@ function loadVehicleLocations() {
     const refreshText = document.getElementById('refresh-text');
     const refreshSpinner = document.getElementById('refresh-spinner');
     
-    if (refreshBtn && refreshText && refreshSpinner) {
+    if (!silent && refreshBtn && refreshText && refreshSpinner) {
         refreshText.style.display = 'none';
         refreshSpinner.style.display = 'inline';
         refreshBtn.disabled = true;
@@ -245,17 +247,6 @@ function loadVehicleLocations() {
             return response.json();
         })
         .then(data => {
-            // Hide loading state
-            const refreshBtn = document.getElementById('refresh-btn');
-            const refreshText = document.getElementById('refresh-text');
-            const refreshSpinner = document.getElementById('refresh-spinner');
-            
-            if (refreshBtn && refreshText && refreshSpinner) {
-                refreshText.style.display = 'inline';
-                refreshSpinner.style.display = 'none';
-                refreshBtn.disabled = false;
-            }
-            
             if (data.error) {
                 console.error('Error:', data.error);
                 return;
@@ -271,14 +262,17 @@ function loadVehicleLocations() {
         .catch(error => {
             document.getElementById('map-status-text').textContent = 'Error: ' + error.message;
             console.error('API Error:', error);
+        })
+        .finally(() => {
+            if (!silent && refreshBtn && refreshText && refreshSpinner) {
+                refreshText.style.display = 'inline';
+                refreshSpinner.style.display = 'none';
+                refreshBtn.disabled = false;
+            }
         });
 }
 
 function updateVehicleMap(vehicles) {
-    // Clear existing markers
-    Object.values(vehicleMarkers).forEach(marker => marker.setMap(null));
-    vehicleMarkers = {};
-
     if (vehicles.length === 0) {
         document.getElementById('vehicle-list').innerHTML = '<div class="text-center text-muted py-3">No active vehicles found</div>';
         document.getElementById('vehicle-count').textContent = '0';
@@ -286,6 +280,7 @@ function updateVehicleMap(vehicles) {
     }
 
     const bounds = new google.maps.LatLngBounds();
+    const seenVehicleIds = new Set();
 
     vehicles.forEach(vehicle => {
         const lat = parseFloat(vehicle.latitude);
@@ -296,35 +291,65 @@ function updateVehicleMap(vehicles) {
             return;
         }
 
-        const marker = new google.maps.Marker({
-            position: { lat: lat, lng: lng },
-            map: vehicleMap,
-            title: vehicle.vehicle_name,
-            icon: {
-                url: 'https://maps.gstatic.com/mapfiles/ms2/micons/bus.png',
-                scaledSize: new google.maps.Size(40, 40),
-                anchor: new google.maps.Point(20, 20)
-            },
-            animation: google.maps.Animation.DROP
-        });
-
-        const infoWindow = new google.maps.InfoWindow({
-            content: `
+        const vehicleId = String(vehicle.vehicle_id);
+        seenVehicleIds.add(vehicleId);
+        const position = { lat: lat, lng: lng };
+        const isLive = vehicle.last_update !== null && Number(vehicle.last_update) <= LIVE_LOCATION_SECONDS;
+        const iconUrl = isLive
+            ? 'https://maps.gstatic.com/mapfiles/ms2/micons/bus.png'
+            : 'https://maps.google.com/mapfiles/ms/icons/yellow-dot.png';
+        const infoHtml = `
                 <div style="min-width: 220px; padding: 10px;">
                     <h4 style="margin: 0 0 8px 0; color: #333;">${vehicle.vehicle_name}</h4>
+                    <p style="margin: 0 0 4px 0;"><strong>Driver:</strong> ${vehicle.driver_name || 'N/A'}</p>
                     <p style="margin: 0 0 4px 0;"><strong>Plate:</strong> ${vehicle.license_plate}</p>
+                    <p style="margin: 0 0 4px 0;"><strong>Route:</strong> ${vehicle.route_name || 'Unassigned'}</p>
                     <p style="margin: 0 0 4px 0;"><strong>Status:</strong> ${vehicle.status}</p>
-                    <p style="margin: 0;"><strong>GPS:</strong> ${vehicle.last_update === null ? 'No update yet' : `${vehicle.last_update}s ago`}</p>
+                    <p style="margin: 0;"><strong>GPS:</strong> ${isLive ? 'Live' : 'Last known'}${vehicle.last_update === null ? '' : ` (${vehicle.last_update}s ago)`}</p>
                 </div>
-            `
-        });
+            `;
 
-        marker.addListener('click', () => {
-            infoWindow.open(vehicleMap, marker);
-        });
+        if (vehicleMarkers[vehicleId]) {
+            vehicleMarkers[vehicleId].setPosition(position);
+            vehicleMarkers[vehicleId].setIcon({
+                url: iconUrl,
+                scaledSize: new google.maps.Size(isLive ? 42 : 34, isLive ? 42 : 34),
+                anchor: new google.maps.Point(isLive ? 21 : 17, isLive ? 21 : 17)
+            });
+            if (vehicleMarkers[vehicleId].infoWindow) {
+                vehicleMarkers[vehicleId].infoWindow.setContent(infoHtml);
+            }
+        } else {
+            const marker = new google.maps.Marker({
+                position,
+                map: vehicleMap,
+                title: vehicle.vehicle_name,
+                icon: {
+                    url: iconUrl,
+                    scaledSize: new google.maps.Size(isLive ? 42 : 34, isLive ? 42 : 34),
+                    anchor: new google.maps.Point(isLive ? 21 : 17, isLive ? 21 : 17)
+                }
+            });
 
-        vehicleMarkers[vehicle.vehicle_id] = marker;
-        bounds.extend(marker.getPosition());
+            const infoWindow = new google.maps.InfoWindow({ content: infoHtml });
+            marker.addListener('click', () => {
+                Object.values(vehicleMarkers).forEach(existingMarker => {
+                    existingMarker.infoWindow?.close();
+                });
+                infoWindow.open(vehicleMap, marker);
+            });
+            marker.infoWindow = infoWindow;
+            vehicleMarkers[vehicleId] = marker;
+        }
+
+        bounds.extend(position);
+    });
+
+    Object.keys(vehicleMarkers).forEach(vehicleId => {
+        if (!seenVehicleIds.has(vehicleId)) {
+            vehicleMarkers[vehicleId].setMap(null);
+            delete vehicleMarkers[vehicleId];
+        }
     });
 
     if (vehicles.length > 0 && !bounds.isEmpty()) {
@@ -347,8 +372,9 @@ function updateVehicleList(vehicles) {
     let html = '';
     vehicles.forEach(vehicle => {
         const hasLocation = vehicle.has_location && vehicle.latitude !== null && vehicle.longitude !== null;
-        const status = hasLocation ? 'Live Tracking' : 'No GPS yet';
-        const statusColor = hasLocation ? '#28a745' : '#ffc107';
+        const isLive = vehicle.last_update !== null && Number(vehicle.last_update) <= LIVE_LOCATION_SECONDS;
+        const status = hasLocation ? `${isLive ? 'Live' : 'Last known'}${vehicle.last_update === null ? '' : `, ${vehicle.last_update}s ago`}` : 'No GPS yet';
+        const statusColor = hasLocation ? (isLive ? '#28a745' : '#d97706') : '#ffc107';
         const clickAction = hasLocation ? ` onclick="centerOnVehicle(${vehicle.vehicle_id})"` : '';
         const cursor = hasLocation ? 'pointer' : 'default';
         html += `
@@ -358,7 +384,7 @@ function updateVehicleList(vehicles) {
                     <i class="fas fa-bus" style="color: #2196F3;"></i>
                     ${vehicle.vehicle_name}
                 </strong>
-                <small>${vehicle.license_plate} &bull; <span style="color: ${statusColor};">${status}</span></small>
+                <small>${vehicle.license_plate} &bull; ${vehicle.driver_name || 'No driver'} &bull; <span style="color: ${statusColor};">${status}</span></small>
             </div>
             <a href="booking.php?vehicle_id=${vehicle.vehicle_id}" class="btn btn-primary" onclick="event.stopPropagation();" style="font-size: 0.75rem; padding: 0.25rem 0.5rem; margin-left: 8px;">
                 Book
@@ -369,7 +395,7 @@ function updateVehicleList(vehicles) {
 }
 
 function centerOnVehicle(vehicleId) {
-    const marker = vehicleMarkers[vehicleId];
+    const marker = vehicleMarkers[String(vehicleId)];
     if (marker) {
         vehicleMap.panTo(marker.getPosition());
         vehicleMap.setZoom(17);
@@ -377,15 +403,18 @@ function centerOnVehicle(vehicleId) {
         setTimeout(() => {
             marker.setAnimation(null);
         }, 1500);
+        if (marker.infoWindow) {
+            marker.infoWindow.open(vehicleMap, marker);
+        }
     }
 }
 
-// Auto-refresh every 8 seconds
+// Auto-refresh on the same near-live rhythm as the admin dashboard.
 setInterval(() => {
     if (mapInitialized) {
-        loadVehicleLocations();
+        loadVehicleLocations(true);
     }
-}, 8000);
+}, VEHICLE_REFRESH_MS);
 </script>
 
 <?php require_once 'footer.php'; ?>

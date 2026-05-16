@@ -147,7 +147,7 @@ let bookingMarkers = {};
 let mapInitialized = false;
 let firstDataLoad = true;
 let watchId = null;
-const GPS_UPDATE_INTERVAL_MS = 10000;
+const GPS_UPDATE_INTERVAL_MS = 4000;
 let lastLocationSentAt = 0;
 
 function initMap() {
@@ -485,15 +485,18 @@ function updateBookingsMap(bookings) {
 }
 
 // Load vehicle locations using the same flow as admin, but filter to this driver's assigned vehicle
-function loadVehicleLocations() {
+function loadVehicleLocations(silent) {
+    silent = !!silent;
     if (!mapInitialized) return;
 
     const refreshBtn = document.getElementById('refresh-btn');
     const refreshText = document.getElementById('refresh-text');
     const refreshSpinner = document.getElementById('refresh-spinner');
-    if (refreshText) refreshText.style.display = 'none';
-    if (refreshSpinner) refreshSpinner.style.display = 'inline';
-    if (refreshBtn) refreshBtn.disabled = true;
+    if (!silent) {
+        if (refreshText) refreshText.style.display = 'none';
+        if (refreshSpinner) refreshSpinner.style.display = 'inline';
+        if (refreshBtn) refreshBtn.disabled = true;
+    }
 
     fetch('../api/vehicle_locations.php')
         .then(function(response) {
@@ -519,9 +522,11 @@ function loadVehicleLocations() {
             if (statusTextEl) statusTextEl.textContent = 'Vehicle load error';
         })
         .finally(function() {
-            if (refreshText) refreshText.style.display = 'inline';
-            if (refreshSpinner) refreshSpinner.style.display = 'none';
-            if (refreshBtn) refreshBtn.disabled = false;
+            if (!silent) {
+                if (refreshText) refreshText.style.display = 'inline';
+                if (refreshSpinner) refreshSpinner.style.display = 'none';
+                if (refreshBtn) refreshBtn.disabled = false;
+            }
         });
 }
 
@@ -644,8 +649,8 @@ function centerOnVehicle(vehicleId) {
     if (marker.infoWindow) marker.infoWindow.open(driverMap, marker);
 }
 
-// Optionally auto-refresh vehicle positions every 10s (matches admin behavior)
-setInterval(function(){ if (mapInitialized) loadVehicleLocations(); }, 10000);
+// Keep the driver's own map close to the GPS upload rhythm.
+setInterval(function(){ if (mapInitialized) loadVehicleLocations(true); }, GPS_UPDATE_INTERVAL_MS);
 
 // Update booking list sidebar
 function updateBookingList(bookings) {
