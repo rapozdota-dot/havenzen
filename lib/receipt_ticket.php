@@ -1,6 +1,6 @@
 <?php
 
-function hz_fetch_receipt_booking(mysqli $conn, int $bookingId): ?array
+function hz_fetch_receipt_booking($conn, int $bookingId): ?array
 {
     if ($bookingId <= 0) {
         return null;

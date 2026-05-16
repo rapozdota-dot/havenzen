@@ -8,7 +8,7 @@ function hz_normalize_license_plate(string $value): string
     return strtoupper(trim(preg_replace('/\s+/', '', $value)));
 }
 
-function hz_license_plate_exists(mysqli $conn, string $licensePlate, ?int $excludeVehicleId = null): bool
+function hz_license_plate_exists($conn, string $licensePlate, ?int $excludeVehicleId = null): bool
 {
     $sql = "SELECT vehicle_id FROM vehicles WHERE UPPER(license_plate) = ?";
     if ($excludeVehicleId !== null) {

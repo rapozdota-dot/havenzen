@@ -101,6 +101,7 @@ class PgCompatStatement
         } catch (Throwable $e) {
             $this->error = $e->getMessage();
             $this->conn->error = $this->error;
+            error_log('Postgres statement failed: ' . $this->error . ' SQL: ' . $this->sql);
             return false;
         }
     }
@@ -122,6 +123,7 @@ class PgCompatConnection
 {
     public string $connect_error = '';
     public string $error = '';
+    public int $errno = 0;
     public int $insert_id = 0;
     public int $affected_rows = 0;
 
@@ -223,6 +225,7 @@ class PgCompatConnection
             return true;
         } catch (Throwable $e) {
             $this->error = $e->getMessage();
+            error_log('Postgres query failed: ' . $this->error . ' SQL: ' . $sql);
             return false;
         }
     }

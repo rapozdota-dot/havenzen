@@ -1210,6 +1210,11 @@ body {
     font-size: 0.95rem;
 }
 
+.vehicle-register-panel {
+    max-width: 820px;
+    margin: 0 auto 32px;
+}
+
 .map-container {
     background: var(--white);
     border-radius: var(--border-radius-lg);
