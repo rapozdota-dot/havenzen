@@ -21,7 +21,7 @@
             </div>
             <div class="modal-actions">
                 <button class="btn btn-secondary" onclick="closeLocationModal()">Cancel</button>
-                <button class="btn btn-primary" onclick="updateDriverLocation()">Update Location</button>
+                <button class="btn btn-primary" onclick="updateFooterDriverLocation()">Update Location</button>
             </div>
         </div>
     </div>
@@ -127,7 +127,7 @@
         }
     }
 
-    function updateDriverLocation() {
+    function updateFooterDriverLocation() {
         if (currentLocation) {
             showLoading();
             fetch('update_location.php', {
@@ -167,7 +167,7 @@
     setInterval(() => {
         const isOnline = document.getElementById('statusIndicator').classList.contains('online');
         if (isOnline && currentLocation) {
-            updateDriverLocation();
+            updateFooterDriverLocation();
         }
     }, 30000);
 

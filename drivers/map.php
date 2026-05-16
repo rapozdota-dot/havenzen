@@ -101,6 +101,17 @@ $google_maps_script_url = google_maps_script_url('initMap', ['geometry', 'places
 
 <!-- Load Google Maps API -->
 <script>
+window.onerror = function(message, source, lineno, colno) {
+    const statusTextEl = document.getElementById('map-status-text');
+    const loadingEl = document.getElementById('map-loading');
+    if (statusTextEl) {
+        statusTextEl.textContent = 'Map script error: ' + message + ' at line ' + lineno;
+    }
+    if (loadingEl) {
+        loadingEl.style.display = 'flex';
+    }
+};
+
 function loadGoogleMaps() {
     console.log('Loading Google Maps API...');
     const script = document.createElement('script');
@@ -113,6 +124,19 @@ function loadGoogleMaps() {
         if (statusTextEl) statusTextEl.textContent = 'Failed to load Google Maps. Please check your connection.';
     };
     document.head.appendChild(script);
+
+    setTimeout(function() {
+        if (!window.google || !window.google.maps) {
+            const statusTextEl = document.getElementById('map-status-text');
+            const loadingEl = document.getElementById('map-loading');
+            if (statusTextEl) {
+                statusTextEl.textContent = 'Google Maps did not load. Check GOOGLE_MAPS_API_KEY, Maps JavaScript API, billing, and Render domain referrer.';
+            }
+            if (loadingEl) {
+                loadingEl.style.display = 'flex';
+            }
+        }
+    }, 8000);
 }
 
 // Global variables
@@ -129,6 +153,7 @@ let lastLocationSentAt = 0;
 
 function initMap() {
     try {
+        window.havenzenMapInitCalled = true;
         const mapElement = document.getElementById('driver-map');
         if (!mapElement) {
             console.error('Map element not found!');
@@ -790,6 +815,11 @@ function toggleOnlineStatus() {
 
 // Update driver location on server
 function updateDriverLocation(lat, lng) {
+    if (typeof lat !== 'number' || typeof lng !== 'number' || Number.isNaN(lat) || Number.isNaN(lng)) {
+        console.warn('Skipping invalid map location update', lat, lng);
+        return;
+    }
+
     fetch('../api/update_driver_location.php', {
         method: 'POST',
         headers: {
