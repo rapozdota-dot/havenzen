@@ -304,6 +304,7 @@ class PgCompatConnection
             return 'INSERT INTO vehicle_trips (' . $match[1] . ') VALUES (' . $match[2] . ')
                 ON CONFLICT (schedule_id, direction, scheduled_departure_at) DO UPDATE SET
                     vehicle_id = EXCLUDED.vehicle_id,
+                    driver_id = EXCLUDED.driver_id,
                     route_id = EXCLUDED.route_id,
                     seat_capacity_snapshot = EXCLUDED.seat_capacity_snapshot';
         }

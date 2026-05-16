@@ -344,6 +344,7 @@ DROP TABLE IF EXISTS `vehicle_schedules`;
 CREATE TABLE `vehicle_schedules` (
   `schedule_id` int(11) NOT NULL AUTO_INCREMENT,
   `vehicle_id` int(11) NOT NULL,
+  `driver_id` int(11) DEFAULT NULL,
   `route_id` int(11) NOT NULL,
   `return_route_id` int(11) DEFAULT NULL,
   `departure_time` time NOT NULL,
@@ -354,10 +355,12 @@ CREATE TABLE `vehicle_schedules` (
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`schedule_id`),
   KEY `idx_vehicle_schedules_vehicle_id` (`vehicle_id`),
+  KEY `idx_vehicle_schedules_driver_id` (`driver_id`),
   KEY `idx_vehicle_schedules_route_id` (`route_id`),
   KEY `idx_vehicle_schedules_active` (`is_active`),
   KEY `fk_vehicle_schedules_return_route` (`return_route_id`),
   CONSTRAINT `fk_vehicle_schedules_return_route` FOREIGN KEY (`return_route_id`) REFERENCES `routes` (`route_id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_vehicle_schedules_driver` FOREIGN KEY (`driver_id`) REFERENCES `users` (`user_id`) ON DELETE SET NULL,
   CONSTRAINT `fk_vehicle_schedules_route` FOREIGN KEY (`route_id`) REFERENCES `routes` (`route_id`) ON DELETE CASCADE,
   CONSTRAINT `fk_vehicle_schedules_vehicle` FOREIGN KEY (`vehicle_id`) REFERENCES `vehicles` (`vehicle_id`) ON DELETE CASCADE,
   CONSTRAINT `vehicle_schedules_chk_1` CHECK (json_valid(`active_days`))
@@ -375,6 +378,7 @@ CREATE TABLE `vehicle_trips` (
   `trip_id` int(11) NOT NULL AUTO_INCREMENT,
   `schedule_id` int(11) NOT NULL,
   `vehicle_id` int(11) NOT NULL,
+  `driver_id` int(11) DEFAULT NULL,
   `route_id` int(11) NOT NULL,
   `direction` enum('outbound','return') NOT NULL DEFAULT 'outbound',
   `scheduled_departure_at` datetime NOT NULL,
@@ -388,9 +392,11 @@ CREATE TABLE `vehicle_trips` (
   PRIMARY KEY (`trip_id`),
   UNIQUE KEY `uq_vehicle_trip_schedule_departure` (`schedule_id`,`direction`,`scheduled_departure_at`),
   KEY `idx_vehicle_trips_vehicle_date` (`vehicle_id`,`scheduled_departure_at`),
+  KEY `idx_vehicle_trips_driver_date` (`driver_id`,`scheduled_departure_at`),
   KEY `idx_vehicle_trips_route_date` (`route_id`,`scheduled_departure_at`),
   KEY `idx_vehicle_trips_status` (`trip_status`),
   CONSTRAINT `fk_vehicle_trips_route` FOREIGN KEY (`route_id`) REFERENCES `routes` (`route_id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_vehicle_trips_driver` FOREIGN KEY (`driver_id`) REFERENCES `users` (`user_id`) ON DELETE SET NULL,
   CONSTRAINT `fk_vehicle_trips_schedule` FOREIGN KEY (`schedule_id`) REFERENCES `vehicle_schedules` (`schedule_id`) ON DELETE CASCADE,
   CONSTRAINT `fk_vehicle_trips_vehicle` FOREIGN KEY (`vehicle_id`) REFERENCES `vehicles` (`vehicle_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=2859 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

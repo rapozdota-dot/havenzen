@@ -68,6 +68,34 @@ function hz_encode_active_days($days)
     return json_encode(array_values($normalized));
 }
 
+function hz_table_has_column($conn, $table, $column)
+{
+    $table = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $table);
+    $column = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $column);
+    $result = $conn->query("SHOW COLUMNS FROM {$table} LIKE '{$column}'");
+
+    return $result && $result->num_rows > 0;
+}
+
+function hz_ensure_schedule_driver_columns($conn)
+{
+    static $checked = false;
+    if ($checked) {
+        return true;
+    }
+
+    if (!hz_table_has_column($conn, 'vehicle_schedules', 'driver_id')) {
+        $conn->query('ALTER TABLE vehicle_schedules ADD COLUMN driver_id INT NULL');
+    }
+
+    if (!hz_table_has_column($conn, 'vehicle_trips', 'driver_id')) {
+        $conn->query('ALTER TABLE vehicle_trips ADD COLUMN driver_id INT NULL');
+    }
+
+    $checked = true;
+    return true;
+}
+
 function hz_route_endpoints($routeRow)
 {
     $stops = json_decode($routeRow['stops'] ?? '[]', true);
@@ -86,6 +114,8 @@ function hz_route_endpoints($routeRow)
 
 function hz_generate_trips_for_date($conn, $date)
 {
+    hz_ensure_schedule_driver_columns($conn);
+
     $targetDate = date('Y-m-d', strtotime($date));
     $dayName = hz_get_day_name($targetDate);
 
@@ -94,6 +124,7 @@ function hz_generate_trips_for_date($conn, $date)
             vs.*,
             v.seat_capacity,
             v.vehicle_name,
+            v.driver_id AS vehicle_driver_id,
             r.route_name,
             r.travel_minutes,
             rr.travel_minutes AS return_travel_minutes
@@ -118,6 +149,9 @@ function hz_generate_trips_for_date($conn, $date)
         }
 
         $seatCapacity = max(0, intval($schedule['seat_capacity'] ?? 0));
+        $driverId = !empty($schedule['driver_id'])
+            ? intval($schedule['driver_id'])
+            : (!empty($schedule['vehicle_driver_id']) ? intval($schedule['vehicle_driver_id']) : null);
         $outboundDeparture = $targetDate . ' ' . $schedule['departure_time'];
         hz_upsert_trip(
             $conn,
@@ -126,7 +160,8 @@ function hz_generate_trips_for_date($conn, $date)
             intval($schedule['route_id']),
             'outbound',
             $outboundDeparture,
-            $seatCapacity
+            $seatCapacity,
+            $driverId
         );
 
         if (!empty($schedule['return_route_id'])) {
@@ -142,7 +177,8 @@ function hz_generate_trips_for_date($conn, $date)
                 intval($schedule['return_route_id']),
                 'return',
                 date('Y-m-d H:i:s', $returnDepartureTs),
-                $seatCapacity
+                $seatCapacity,
+                $driverId
             );
 
             unset($returnTravelMinutes);
@@ -168,19 +204,21 @@ function hz_generate_trips_for_range($conn, $dateFrom, $dateTo)
     return true;
 }
 
-function hz_upsert_trip($conn, $scheduleId, $vehicleId, $routeId, $direction, $scheduledDepartureAt, $seatCapacitySnapshot)
+function hz_upsert_trip($conn, $scheduleId, $vehicleId, $routeId, $direction, $scheduledDepartureAt, $seatCapacitySnapshot, $driverId = null)
 {
     $sql = "
         INSERT INTO vehicle_trips (
             schedule_id,
             vehicle_id,
+            driver_id,
             route_id,
             direction,
             scheduled_departure_at,
             seat_capacity_snapshot
-        ) VALUES (?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE
             vehicle_id = VALUES(vehicle_id),
+            driver_id = VALUES(driver_id),
             route_id = VALUES(route_id),
             seat_capacity_snapshot = VALUES(seat_capacity_snapshot)
     ";
@@ -191,9 +229,10 @@ function hz_upsert_trip($conn, $scheduleId, $vehicleId, $routeId, $direction, $s
     }
 
     $stmt->bind_param(
-        'iiissi',
+        'iiiissi',
         $scheduleId,
         $vehicleId,
+        $driverId,
         $routeId,
         $direction,
         $scheduledDepartureAt,

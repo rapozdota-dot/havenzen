@@ -1,6 +1,5 @@
 <?php
 require_once 'auth.php';
-require_once 'header.php';
 
 $booking_id = isset($_GET['booking_id']) ? intval($_GET['booking_id']) : null;
 
@@ -16,7 +15,7 @@ $booking_query = $conn->query("
            l.latitude, l.longitude, l.timestamp
     FROM bookings b
     LEFT JOIN vehicles v ON b.vehicle_id = v.vehicle_id
-    LEFT JOIN drivers d ON b.driver_id = d.user_id
+    LEFT JOIN drivers d ON d.user_id = COALESCE(b.driver_id, v.driver_id)
     LEFT JOIN locations l ON v.vehicle_id = l.vehicle_id AND l.timestamp = (
         SELECT MAX(timestamp) FROM locations WHERE vehicle_id = v.vehicle_id
     )
@@ -31,7 +30,7 @@ if ($booking_query->num_rows === 0) {
 $booking = $booking_query->fetch_assoc();
 
 // Check if booking can be tracked
-$can_track = in_array($booking['status'], ['confirmed', 'in_progress', 'completed']);
+$can_track = in_array($booking['status'], ['confirmed', 'in_progress', 'completed'], true);
 
 if (!$can_track) {
     header('Location: booking.php');
@@ -39,17 +38,9 @@ if (!$can_track) {
 }
 
 $google_maps_script_url = google_maps_script_url(null, ['places', 'geometry']);
+require_once 'header.php';
 ?>
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Track Your Booking - Havenzen</title>
-    <link rel="stylesheet" href="../landing.css">
-    <link rel="stylesheet" href="users.css">
-    <script src="<?php echo htmlspecialchars($google_maps_script_url, ENT_QUOTES, 'UTF-8'); ?>"></script>
     <style>
         .tracking-container {
             display: grid;
@@ -81,7 +72,6 @@ $google_maps_script_url = google_maps_script_url(null, ['places', 'geometry']);
             .booking-details, .driver-card {
                 padding: 0.5rem !important;
             }
-        }
         }
 
         #trackingMap {
@@ -289,8 +279,6 @@ $google_maps_script_url = google_maps_script_url(null, ['places', 'geometry']);
             }
         }
     </style>
-</head>
-<body>
     <a href="booking.php" class="back-button">
         <i class="fas fa-arrow-left"></i> Back to Bookings
     </a>
@@ -323,13 +311,21 @@ $google_maps_script_url = google_maps_script_url(null, ['places', 'geometry']);
                     </a>
                 </div>
 
-                <?php if ($booking['latitude'] && $booking['longitude']): ?>
+                <?php if (!empty($booking['vehicle_id'])): ?>
                     <div class="eta-display">
                         <div class="label">Estimated Time to Pickup</div>
-                        <div class="time" id="etaToPickup">Calculating...</div>
-                        <span class="live-indicator">Live Location</span>
+                        <div class="time" id="etaToPickup"><?php echo ($booking['latitude'] && $booking['longitude']) ? 'Calculating...' : 'Waiting for GPS'; ?></div>
+                        <span class="live-indicator">Updates every 10 seconds</span>
                     </div>
                 <?php endif; ?>
+            <?php endif; ?>
+
+            <?php if (!$booking['driver_name'] && !empty($booking['vehicle_id'])): ?>
+                <div class="eta-display">
+                    <div class="label">Estimated Time to Pickup</div>
+                    <div class="time" id="etaToPickup"><?php echo ($booking['latitude'] && $booking['longitude']) ? 'Calculating...' : 'Waiting for GPS'; ?></div>
+                    <span class="live-indicator">Updates every 10 seconds</span>
+                </div>
             <?php endif; ?>
 
             <div class="detail-item">
@@ -374,6 +370,7 @@ $google_maps_script_url = google_maps_script_url(null, ['places', 'geometry']);
         </div>
     </div>
 
+    <script src="<?php echo htmlspecialchars($google_maps_script_url, ENT_QUOTES, 'UTF-8'); ?>"></script>
     <script>
         const bookingData = {
             booking_id: <?php echo $booking_id; ?>,
@@ -593,7 +590,11 @@ $google_maps_script_url = google_maps_script_url(null, ['places', 'geometry']);
                     position: vehicleLocation,
                     map: map,
                     title: 'Vehicle Location',
-                    icon: '🚌',
+                    icon: {
+                        url: 'https://maps.gstatic.com/mapfiles/ms2/micons/bus.png',
+                        scaledSize: new google.maps.Size(42, 42),
+                        anchor: new google.maps.Point(21, 21)
+                    },
                     animation: google.maps.Animation.DROP
                 });
             } else {
@@ -704,5 +705,3 @@ $google_maps_script_url = google_maps_script_url(null, ['places', 'geometry']);
     </script>
 
     <?php require_once 'footer.php'; ?>
-</body>
-</html>

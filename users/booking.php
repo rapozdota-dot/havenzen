@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $tripQuery = $conn->query("
             SELECT
                 vt.*,
-                v.driver_id,
+                COALESCE(vt.driver_id, vs.driver_id, v.driver_id) AS driver_id,
                 v.vehicle_name,
                 v.license_plate,
                 d.full_name AS driver_name,
@@ -32,8 +32,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 r.fare,
                 r.stops
             FROM vehicle_trips vt
+            LEFT JOIN vehicle_schedules vs ON vs.schedule_id = vt.schedule_id
             JOIN vehicles v ON v.vehicle_id = vt.vehicle_id
-            LEFT JOIN drivers d ON d.user_id = v.driver_id
+            LEFT JOIN drivers d ON d.user_id = COALESCE(vt.driver_id, vs.driver_id, v.driver_id)
             JOIN routes r ON r.route_id = vt.route_id
             WHERE vt.trip_id = {$trip_id}
             LIMIT 1
@@ -188,6 +189,7 @@ if ($vehicleResult) {
 $tripSql = "
     SELECT
         vt.*,
+        COALESCE(vt.driver_id, vs.driver_id, v.driver_id) AS driver_id,
         v.vehicle_name,
         v.license_plate,
         v.seat_capacity,
@@ -198,8 +200,9 @@ $tripSql = "
         r.travel_minutes,
         r.stops
     FROM vehicle_trips vt
+    LEFT JOIN vehicle_schedules vs ON vs.schedule_id = vt.schedule_id
     JOIN vehicles v ON v.vehicle_id = vt.vehicle_id
-    LEFT JOIN drivers d ON d.user_id = v.driver_id
+    LEFT JOIN drivers d ON d.user_id = COALESCE(vt.driver_id, vs.driver_id, v.driver_id)
     JOIN routes r ON r.route_id = vt.route_id
     WHERE DATE(vt.scheduled_departure_at) = '{$selected_date}'
       AND vt.trip_status = 'scheduled'
@@ -241,7 +244,7 @@ $bookingResult = $conn->query("
         r.route_name
     FROM bookings b
     LEFT JOIN vehicles v ON v.vehicle_id = b.vehicle_id
-    LEFT JOIN drivers d ON d.user_id = b.driver_id
+    LEFT JOIN drivers d ON d.user_id = COALESCE(b.driver_id, v.driver_id)
     LEFT JOIN routes r ON r.route_id = b.route_id
     WHERE b.passenger_id = {$user_id}
     ORDER BY COALESCE(b.scheduled_departure_at, b.requested_time, b.created_at) DESC
@@ -313,9 +316,31 @@ require_once 'header.php';
     width: 100%;
 }
 
+.booking-row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    align-items: center;
+}
+
+.booking-row-actions .btn {
+    font-size: 0.85rem;
+    padding: 0.375rem 0.75rem;
+}
+
 @media (max-width: 768px) {
     .trip-meta {
         grid-template-columns: 1fr;
+    }
+
+    .booking-row-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .booking-row-actions .btn,
+    .booking-row-actions form {
+        width: 100%;
     }
 }
 </style>
@@ -521,13 +546,24 @@ require_once 'header.php';
                             <?php
                             $canCancel = in_array($booking['status'], ['pending', 'confirmed'], true)
                                 && in_array($booking['boarding_status'] ?? 'scheduled', ['scheduled', 'vehicle_arrived'], true);
+                            $canTrack = !empty($booking['vehicle_id'])
+                                && in_array($booking['status'], ['confirmed', 'in_progress', 'completed'], true);
                             ?>
-                            <?php if ($canCancel): ?>
-                                <form method="POST" onsubmit="return confirm('Cancel this booking?');">
-                                    <input type="hidden" name="action" value="cancel_booking">
-                                    <input type="hidden" name="booking_id" value="<?php echo intval($booking['booking_id']); ?>">
-                                    <button type="submit" class="btn btn-danger" style="font-size:0.85rem; padding:0.375rem 0.75rem;">Cancel</button>
-                                </form>
+                            <?php if ($canTrack || $canCancel): ?>
+                                <div class="booking-row-actions">
+                                    <?php if ($canTrack): ?>
+                                        <a class="btn btn-secondary" href="tracking.php?booking_id=<?php echo intval($booking['booking_id']); ?>">
+                                            <i class="fas fa-location-dot"></i> Track Van
+                                        </a>
+                                    <?php endif; ?>
+                                    <?php if ($canCancel): ?>
+                                        <form method="POST" onsubmit="return confirm('Cancel this booking?');">
+                                            <input type="hidden" name="action" value="cancel_booking">
+                                            <input type="hidden" name="booking_id" value="<?php echo intval($booking['booking_id']); ?>">
+                                            <button type="submit" class="btn btn-danger">Cancel</button>
+                                        </form>
+                                    <?php endif; ?>
+                                </div>
                             <?php else: ?>
                                 <span style="color: var(--text-color); opacity: 0.75;">Locked</span>
                             <?php endif; ?>
