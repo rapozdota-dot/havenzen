@@ -100,7 +100,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $vehicle_id > 0) {
                   AND status NOT IN ('cancelled', 'denied', 'completed')
                   AND boarding_status NOT IN ('no_show', 'dropped_off')
             ");
-            $activeCount = intval($activeBookings->fetch_assoc()['total'] ?? 0);
+            $activeCount = 0;
+            if ($activeBookings) {
+                $activeRow = $activeBookings->fetch_assoc();
+                $activeCount = intval($activeRow['total'] ?? 0);
+            }
 
             if ($activeCount > 0) {
                 $error_message = 'Finish all passenger actions before completing the trip.';

@@ -174,8 +174,11 @@ $driverCssVersion = @filemtime(__DIR__ . '/drivers.css') ?: time();
     }
 
     function confirmLogout() {
-        if(confirm('Are you sure you want to logout?')) {
-            window.location.href = 'logout.php';
+        if (typeof showLogoutModal === 'function') {
+            return showLogoutModal();
+        }
+        if (confirm('Are you sure you want to logout?')) {
+            window.location.href = '../login/logout.php';
         }
         return false;
     }

@@ -80,7 +80,7 @@
         const indicator = document.getElementById('statusIndicator');
         const isOnline = indicator.classList.contains('online');
         
-        fetch('update_status.php', {
+        fetch('../api/update_driver_status.php', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
@@ -101,8 +101,11 @@
                     indicator.innerHTML = '<i class="fas fa-circle"></i><span>Online</span>';
                     showNotification('You are now online', 'success');
                 }
+            } else {
+                showNotification(data.message || 'Unable to update driver status', 'error');
             }
-        });
+        })
+        .catch(() => showNotification('Unable to update driver status', 'error'));
     }
 
     // Location Services

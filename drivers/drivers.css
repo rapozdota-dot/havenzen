@@ -2810,3 +2810,201 @@ body {
         padding-left: 14px;
     }
 }
+
+/* Final mobile QA pass: driver web ergonomics */
+.driver-main {
+    padding-bottom: calc(var(--section-spacing) + env(safe-area-inset-bottom));
+}
+
+.nav-container {
+    min-height: 58px;
+}
+
+.nav-brand,
+.driver-menu {
+    min-width: 0;
+}
+
+.brand-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.status-indicator,
+.user-initials,
+.logo {
+    flex-shrink: 0;
+}
+
+.card,
+.stat-card,
+.action-card,
+.booking-card,
+.vehicle-card-upgraded,
+.trip-ops-card,
+.passenger-card,
+.profile-card,
+.stats-card,
+.quick-actions,
+.table-container,
+.transactions-table,
+.form-section,
+.filter-section {
+    overflow-wrap: anywhere;
+}
+
+.table-container table,
+.table-responsive table {
+    width: 100%;
+}
+
+.mobile-nav {
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+}
+
+@media (max-width: 1180px) {
+    .nav-container {
+        min-height: 60px;
+    }
+
+    .driver-menu {
+        max-width: none;
+    }
+
+    .nav-content {
+        overscroll-behavior: contain;
+    }
+}
+
+@media (max-width: 768px) {
+    .driver-main {
+        padding-top: 18px;
+        padding-bottom: calc(86px + env(safe-area-inset-bottom));
+    }
+
+    .container {
+        padding-inline: 14px;
+    }
+
+    .dashboard-header,
+    .section-header {
+        margin-bottom: 18px;
+    }
+
+    .dashboard-header h1 {
+        font-size: 1.45rem;
+        line-height: 1.2;
+    }
+
+    .dashboard-header p {
+        font-size: 0.92rem;
+    }
+
+    .driver-stats,
+    .action-cards,
+    .booking-cards,
+    .earnings-overview,
+    .vehicle-details-grid,
+    .trip-metrics {
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+
+    .stat-card,
+    .action-card,
+    .booking-card,
+    .vehicle-card-upgraded,
+    .trip-ops-card,
+    .form-section,
+    .filter-section {
+        border-radius: 10px;
+    }
+
+    .stat-card,
+    .action-card,
+    .trip-ops-body,
+    .passenger-card {
+        padding: 16px;
+    }
+
+    .booking-route,
+    .booking-actions,
+    .quick-actions,
+    .modal-actions,
+    .filter-actions,
+    .table-header,
+    .section-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .booking-actions .btn,
+    .quick-actions .btn,
+    .quick-action-btn,
+    .modal-actions .btn,
+    .filter-actions .btn,
+    .table-header .btn,
+    .section-actions,
+    .section-actions .btn {
+        width: 100%;
+    }
+
+    .mobile-nav {
+        display: flex !important;
+    }
+
+    .mobile-nav-item {
+        min-height: 54px;
+    }
+
+    .modal-content {
+        width: min(94vw, 520px) !important;
+        max-height: calc(100vh - 28px);
+    }
+
+    .passenger-card form {
+        display: flex;
+        width: 100%;
+        margin-right: 0;
+    }
+
+    .passenger-card form .btn {
+        width: 100%;
+    }
+}
+
+@media (max-width: 420px) {
+    .nav-container {
+        padding-inline: 10px;
+    }
+
+    .brand-name {
+        max-width: 9rem;
+        font-size: 0.98rem;
+    }
+
+    .logo {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+    }
+
+    .status-indicator {
+        padding-inline: 9px;
+    }
+
+    .user-initials {
+        min-width: 36px;
+        padding-inline: 6px;
+    }
+
+    .mobile-nav-item span {
+        font-size: 0.64rem;
+    }
+
+    .btn {
+        min-width: 0;
+        white-space: normal;
+    }
+}

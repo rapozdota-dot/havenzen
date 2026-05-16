@@ -5,6 +5,8 @@ require_once 'header.php';
 // Get date range from request or default to current month
 $start_date = $_GET['start_date'] ?? date('Y-m-01');
 $end_date = $_GET['end_date'] ?? date('Y-m-t');
+$start_date = date('Y-m-d', strtotime($start_date) ?: strtotime(date('Y-m-01')));
+$end_date = date('Y-m-d', strtotime($end_date) ?: strtotime(date('Y-m-t')));
 
 // Use the internal driver profile id for earnings (driver_earnings.driver_id)
 $earnings_driver_id = $driver_profile_id ?: $driver_id;
@@ -20,7 +22,14 @@ $earnings_summary = $conn->query("
     WHERE driver_id = $earnings_driver_id 
     AND earning_date BETWEEN '$start_date' AND '$end_date'
     AND status = 'pending'
-")->fetch_assoc();
+");
+$earnings_summary = $earnings_summary ? $earnings_summary->fetch_assoc() : [];
+$earnings_summary = array_merge([
+    'total_bookings' => 0,
+    'total_earnings' => 0,
+    'avg_earning_per_trip' => 0,
+    'today_earnings' => 0,
+], $earnings_summary ?: []);
 
 // Get weekly earnings for chart
 $weekly_earnings = $conn->query("
@@ -39,12 +48,14 @@ $weekly_earnings = $conn->query("
 ");
 
 $weekly_chart_data = [];
+if ($weekly_earnings) {
 while ($row = $weekly_earnings->fetch_assoc()) {
     $week_label = date('M j', strtotime($row['week_start'])) . ' - ' . date('M j', strtotime($row['week_end']));
     $weekly_chart_data[] = [
         'label' => $week_label,
         'earnings' => (float)$row['weekly_total']
     ];
+}
 }
 $weekly_chart_data = array_reverse($weekly_chart_data);
 
@@ -67,7 +78,8 @@ $previous_period_earnings = $conn->query("
     WHERE driver_id = $earnings_driver_id 
     AND earning_date BETWEEN DATE_SUB('$start_date', INTERVAL 1 MONTH) AND DATE_SUB('$end_date', INTERVAL 1 MONTH)
     AND status = 'pending'
-")->fetch_assoc();
+");
+$previous_period_earnings = $previous_period_earnings ? $previous_period_earnings->fetch_assoc() : ['total' => 0];
 
 $growth_percentage = $previous_period_earnings['total'] > 0 
     ? (($earnings_summary['total_earnings'] - $previous_period_earnings['total']) / $previous_period_earnings['total']) * 100 
@@ -218,7 +230,7 @@ $growth_percentage = $previous_period_earnings['total'] > 0
                         </tr>
                     </thead>
                     <tbody>
-                        <?php if ($recent_earnings->num_rows > 0): ?>
+                        <?php if ($recent_earnings && $recent_earnings->num_rows > 0): ?>
                             <?php while ($earning = $recent_earnings->fetch_assoc()): ?>
                                 <tr>
                                     <td data-label="Date & Time">
@@ -279,14 +291,14 @@ $growth_percentage = $previous_period_earnings['total'] > 0
                         SUM(amount) as day_earnings,
                         COUNT(*) as day_bookings
                     FROM driver_earnings 
-                    WHERE driver_id = $driver_id 
+                    WHERE driver_id = $earnings_driver_id
                     AND earning_date BETWEEN DATE_SUB('$start_date', INTERVAL 30 DAY) AND '$end_date'
                     GROUP BY DAYNAME(earning_date)
                     ORDER BY day_earnings DESC
                     LIMIT 3
                 ");
                 
-                if ($top_days->num_rows > 0):
+                if ($top_days && $top_days->num_rows > 0):
                     while ($day = $top_days->fetch_assoc()):
                 ?>
                     <div class="performance-item">
@@ -399,31 +411,8 @@ function closePayoutModal() {
 }
 
 function confirmPayout() {
-    showLoading();
-    
-    fetch('request_payout.php', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        hideLoading();
-        if (data.success) {
-            showNotification('Payout request submitted successfully!', 'success');
-            closePayoutModal();
-            setTimeout(() => {
-                location.reload();
-            }, 2000);
-        } else {
-            showNotification(data.message || 'Failed to request payout', 'error');
-        }
-    })
-    .catch(error => {
-        hideLoading();
-        showNotification('Error requesting payout', 'error');
-    });
+    showNotification('Payout requests are not connected yet. Please coordinate payout manually for now.', 'info');
+    closePayoutModal();
 }
 
 function exportEarnings() {
