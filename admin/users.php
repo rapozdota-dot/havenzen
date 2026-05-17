@@ -26,22 +26,7 @@ if ($action === 'add_user') {
     // Handle profile picture upload
     $profile_picture = '';
     if (isset($_FILES['profile_picture']) && $_FILES['profile_picture']['error'] === UPLOAD_ERR_OK) {
-        $upload_dir = '../uploads/profiles/';
-        if (!is_dir($upload_dir)) {
-            mkdir($upload_dir, 0755, true);
-        }
-
-        $file_extension = pathinfo($_FILES['profile_picture']['name'], PATHINFO_EXTENSION);
-        $file_name = 'profile_' . time() . '_' . uniqid() . '.' . $file_extension;
-        $upload_file = $upload_dir . $file_name;
-
-        // Check if file is an image
-        $allowed_types = ['jpg', 'jpeg', 'png', 'gif'];
-        if (in_array(strtolower($file_extension), $allowed_types)) {
-            if (move_uploaded_file($_FILES['profile_picture']['tmp_name'], $upload_file)) {
-                $profile_picture = $upload_file;
-            }
-        }
+        $profile_picture = hz_store_uploaded_image('profile_picture', 'profiles', 'profile_' . ($_SESSION['user_id'] ?? 'admin'), '', $error);
     }
 
     // Additional fields for driver
@@ -83,7 +68,9 @@ if ($action === 'add_user') {
         $driver_emergency_valid = preg_match('/^(\+63|0)9[0-9]{9}$/', $em);
     }
 
-    if (!$email_valid) {
+    if (!empty($error)) {
+        // Keep upload/validation error and skip creating the user.
+    } elseif (!$email_valid) {
         $error = 'Please provide a valid email address.';
     } elseif (!$phone_valid) {
         $error = 'Please provide a valid Philippine phone number (e.g. 09171234567 or +639171234567).';
@@ -194,26 +181,7 @@ if ($action === 'update_user') {
     // Handle profile picture upload
     $profile_picture = $_POST['current_profile_picture'] ?? '';
     if (isset($_FILES['profile_picture']) && $_FILES['profile_picture']['error'] === UPLOAD_ERR_OK) {
-        $upload_dir = '../uploads/profiles/';
-        if (!is_dir($upload_dir)) {
-            mkdir($upload_dir, 0755, true);
-        }
-
-        $file_extension = pathinfo($_FILES['profile_picture']['name'], PATHINFO_EXTENSION);
-        $file_name = 'profile_' . time() . '_' . uniqid() . '.' . $file_extension;
-        $upload_file = $upload_dir . $file_name;
-
-        // Check if file is an image
-        $allowed_types = ['jpg', 'jpeg', 'png', 'gif'];
-        if (in_array(strtolower($file_extension), $allowed_types)) {
-            if (move_uploaded_file($_FILES['profile_picture']['tmp_name'], $upload_file)) {
-                // Delete old profile picture if exists
-                if (!empty($profile_picture) && file_exists($profile_picture)) {
-                    unlink($profile_picture);
-                }
-                $profile_picture = $upload_file;
-            }
-        }
+        $profile_picture = hz_store_uploaded_image('profile_picture', 'profiles', 'profile_' . $user_id, $profile_picture, $error);
     }
 
     // Additional fields for driver (sanitize similarly to add_user)

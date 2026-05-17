@@ -4,21 +4,7 @@ require_once 'header.php';
 
 function hz_user_upload_path_exists(?string $path): bool
 {
-    $path = trim((string) $path);
-    if ($path === '') {
-        return false;
-    }
-
-    if (preg_match('/^https?:\/\//i', $path)) {
-        return true;
-    }
-
-    $normalized = str_replace('\\', '/', $path);
-    if (strpos($normalized, '../') === 0) {
-        return is_file(__DIR__ . '/' . $normalized);
-    }
-
-    return is_file(dirname(__DIR__) . '/' . ltrim($normalized, '/'));
+    return hz_upload_path_exists($path);
 }
 
 // Handle profile updates
@@ -50,27 +36,11 @@ if (isset($_POST['action']) && $_POST['action'] === 'update_profile') {
         // Handle optional profile picture upload
         $profile_picture = $user_data['profile_picture'] ?? '';
         if (isset($_FILES['profile_picture']) && $_FILES['profile_picture']['error'] === UPLOAD_ERR_OK) {
-            $upload_dir = '../uploads/profiles/';
-            if (!is_dir($upload_dir)) {
-                mkdir($upload_dir, 0755, true);
-            }
-
-            $file_extension = pathinfo($_FILES['profile_picture']['name'], PATHINFO_EXTENSION);
-            $allowed_types = ['jpg', 'jpeg', 'png', 'gif'];
-            if (in_array(strtolower($file_extension), $allowed_types)) {
-                $file_name = 'passenger_profile_' . time() . '_' . uniqid() . '.' . $file_extension;
-                $upload_file = $upload_dir . $file_name;
-                if (move_uploaded_file($_FILES['profile_picture']['tmp_name'], $upload_file)) {
-                    if (!empty($profile_picture) && file_exists($profile_picture)) {
-                        @unlink($profile_picture);
-                    }
-                    $profile_picture = $upload_file;
-                }
-            }
+            $profile_picture = hz_store_uploaded_image('profile_picture', 'profiles', 'passenger_profile_' . $user_id, $profile_picture, $profile_error);
         }
 
         // Update passenger profile in customers table using prepared statement
-        $stmt = $conn->prepare("UPDATE customers SET full_name = ?, email = ?, phone_number = ?, profile_picture = ? WHERE user_id = ?");
+        $stmt = empty($profile_error) ? $conn->prepare("UPDATE customers SET full_name = ?, email = ?, phone_number = ?, profile_picture = ? WHERE user_id = ?") : null;
         if ($stmt) {
             $stmt->bind_param('ssssi', $full_name, $email, $phone_number, $profile_picture, $user_id);
             if ($stmt->execute()) {
@@ -96,7 +66,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'update_profile') {
                 $profile_error = "Error updating profile: " . $stmt->error;
             }
             $stmt->close();
-        } else {
+        } elseif (empty($profile_error)) {
             $profile_error = "Error preparing profile update: " . $conn->error;
         }
     }
@@ -146,7 +116,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'change_password') {
     <div class="profile-card">
         <div class="profile-avatar">
             <?php if (hz_user_upload_path_exists($user_data['profile_picture'] ?? '')): ?>
-                <img src="<?php echo htmlspecialchars($user_data['profile_picture']); ?>" alt="Profile Picture" class="avatar-image">
+                <img src="<?php echo htmlspecialchars(hz_upload_href($user_data['profile_picture'])); ?>" alt="Profile Picture" class="avatar-image">
             <?php else: ?>
                 <div class="avatar-placeholder">
                     <i class="fas fa-user"></i>

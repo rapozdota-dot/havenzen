@@ -77,68 +77,12 @@ $driver_stats = hz_driver_profile_stats($conn, intval($driver_id));
 
 function hz_driver_upload_path_exists(?string $path): bool
 {
-    $path = trim((string) $path);
-    if ($path === '') {
-        return false;
-    }
-
-    if (preg_match('/^https?:\/\//i', $path)) {
-        return true;
-    }
-
-    $normalized = str_replace('\\', '/', $path);
-    if (strpos($normalized, '../') === 0) {
-        return is_file(__DIR__ . '/' . $normalized);
-    }
-
-    return is_file(dirname(__DIR__) . '/' . ltrim($normalized, '/'));
+    return hz_upload_path_exists($path);
 }
 
 function handle_driver_image_upload($fieldName, $existingPath, $prefix, &$error_message)
 {
-    if (!isset($_FILES[$fieldName]) || $_FILES[$fieldName]['error'] === UPLOAD_ERR_NO_FILE) {
-        return $existingPath;
-    }
-
-    if ($_FILES[$fieldName]['error'] !== UPLOAD_ERR_OK) {
-        $error_message = 'Upload failed for ' . str_replace('_', ' ', $fieldName) . '.';
-        return $existingPath;
-    }
-
-    if ($_FILES[$fieldName]['size'] > 5 * 1024 * 1024) {
-        $error_message = 'License images must be 5MB or smaller.';
-        return $existingPath;
-    }
-
-    $upload_dir = '../uploads/licenses/';
-    if (!is_dir($upload_dir)) {
-        mkdir($upload_dir, 0755, true);
-    }
-
-    $extension = strtolower(pathinfo($_FILES[$fieldName]['name'], PATHINFO_EXTENSION));
-    $allowed_types = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-    if (!in_array($extension, $allowed_types, true)) {
-        $error_message = 'License images must be JPG, PNG, GIF, or WEBP files.';
-        return $existingPath;
-    }
-
-    if (@getimagesize($_FILES[$fieldName]['tmp_name']) === false) {
-        $error_message = 'The uploaded license file is not a valid image.';
-        return $existingPath;
-    }
-
-    $file_name = $prefix . '_' . time() . '_' . uniqid() . '.' . $extension;
-    $upload_file = $upload_dir . $file_name;
-    if (!move_uploaded_file($_FILES[$fieldName]['tmp_name'], $upload_file)) {
-        $error_message = 'Could not save the uploaded license image.';
-        return $existingPath;
-    }
-
-    if (!empty($existingPath) && strpos($existingPath, '../uploads/licenses/') === 0 && file_exists($existingPath)) {
-        @unlink($existingPath);
-    }
-
-    return $upload_file;
+    return hz_store_uploaded_image($fieldName, 'licenses', $prefix, $existingPath, $error_message);
 }
 
 // Handle form submissions
@@ -177,24 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Handle profile picture upload (optional)
             $profile_picture = $driver_details['profile_picture'] ?? '';
             if (isset($_FILES['profile_picture']) && $_FILES['profile_picture']['error'] === UPLOAD_ERR_OK) {
-                $upload_dir = '../uploads/profiles/';
-                if (!is_dir($upload_dir)) {
-                    mkdir($upload_dir, 0755, true);
-                }
-
-                $file_extension = pathinfo($_FILES['profile_picture']['name'], PATHINFO_EXTENSION);
-                $allowed_types = ['jpg', 'jpeg', 'png', 'gif'];
-                if (in_array(strtolower($file_extension), $allowed_types)) {
-                    $file_name = 'driver_profile_' . time() . '_' . uniqid() . '.' . $file_extension;
-                    $upload_file = $upload_dir . $file_name;
-                    if (move_uploaded_file($_FILES['profile_picture']['tmp_name'], $upload_file)) {
-                        // Delete old picture if it exists
-                        if (!empty($profile_picture) && file_exists($profile_picture)) {
-                            @unlink($profile_picture);
-                        }
-                        $profile_picture = $upload_file;
-                    }
-                }
+                $profile_picture = hz_store_uploaded_image('profile_picture', 'profiles', 'driver_profile_' . $driver_id, $profile_picture, $error_message);
             }
 
             // Update the drivers profile table
@@ -309,7 +236,7 @@ $driver_details = hz_driver_profile_details($conn, intval($driver_id)) ?: $drive
         <div class="profile-card">
             <div class="profile-avatar">
                 <?php if (hz_driver_upload_path_exists($driver_details['profile_picture'] ?? '')): ?>
-                    <img src="<?php echo htmlspecialchars($driver_details['profile_picture']); ?>" alt="Profile Picture" class="avatar-image">
+                    <img src="<?php echo htmlspecialchars(hz_upload_href($driver_details['profile_picture'])); ?>" alt="Profile Picture" class="avatar-image">
                 <?php else: ?>
                     <div class="avatar-placeholder">
                         <i class="fas fa-user"></i>
@@ -447,7 +374,7 @@ $driver_details = hz_driver_profile_details($conn, intval($driver_id)) ?: $drive
                         <label for="license_front_image">Driver License Image - Front</label>
                         <?php if (hz_driver_upload_path_exists($driver_details['license_front_image'] ?? '')): ?>
                             <div style="margin-bottom: 0.5rem;">
-                                <a href="<?php echo htmlspecialchars($driver_details['license_front_image']); ?>" target="_blank" rel="noopener">
+                                <a href="<?php echo htmlspecialchars(hz_upload_href($driver_details['license_front_image'])); ?>" target="_blank" rel="noopener">
                                     View current front image
                                 </a>
                             </div>
@@ -461,7 +388,7 @@ $driver_details = hz_driver_profile_details($conn, intval($driver_id)) ?: $drive
                         <label for="license_back_image">Driver License Image - Back</label>
                         <?php if (hz_driver_upload_path_exists($driver_details['license_back_image'] ?? '')): ?>
                             <div style="margin-bottom: 0.5rem;">
-                                <a href="<?php echo htmlspecialchars($driver_details['license_back_image']); ?>" target="_blank" rel="noopener">
+                                <a href="<?php echo htmlspecialchars(hz_upload_href($driver_details['license_back_image'])); ?>" target="_blank" rel="noopener">
                                     View current back image
                                 </a>
                             </div>

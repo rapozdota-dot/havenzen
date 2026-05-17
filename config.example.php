@@ -125,4 +125,113 @@ if (!function_exists('google_maps_script_url')) {
         return 'https://maps.googleapis.com/maps/api/js?' . http_build_query($params, '', '&', PHP_QUERY_RFC3986);
     }
 }
+
+if (!function_exists('hz_upload_public_path')) {
+    function hz_upload_public_path($subdir, $fileName)
+    {
+        $subdir = trim(str_replace('\\', '/', (string) $subdir), '/');
+        return '../uploads/' . $subdir . '/' . ltrim((string) $fileName, '/');
+    }
+}
+
+if (!function_exists('hz_upload_filesystem_path')) {
+    function hz_upload_filesystem_path($publicPath)
+    {
+        $normalized = ltrim(str_replace('\\', '/', (string) $publicPath), '/');
+        while (strpos($normalized, '../') === 0) {
+            $normalized = substr($normalized, 3);
+        }
+
+        return __DIR__ . '/' . $normalized;
+    }
+}
+
+if (!function_exists('hz_upload_path_exists')) {
+    function hz_upload_path_exists($path)
+    {
+        $path = trim((string) $path);
+        if ($path === '') {
+            return false;
+        }
+
+        if (preg_match('/^https?:\/\//i', $path)) {
+            return true;
+        }
+
+        return is_file(hz_upload_filesystem_path($path));
+    }
+}
+
+if (!function_exists('hz_upload_href')) {
+    function hz_upload_href($path)
+    {
+        $path = trim((string) $path);
+        if ($path === '' || preg_match('/^https?:\/\//i', $path)) {
+            return $path;
+        }
+
+        $normalized = ltrim(str_replace('\\', '/', $path), '/');
+        while (strpos($normalized, '../') === 0) {
+            $normalized = substr($normalized, 3);
+        }
+
+        return '../' . $normalized;
+    }
+}
+
+if (!function_exists('hz_store_uploaded_image')) {
+    function hz_store_uploaded_image($fieldName, $subdir, $prefix, $existingPath = '', &$errorMessage = null, $maxBytes = 5242880)
+    {
+        if (!isset($_FILES[$fieldName]) || $_FILES[$fieldName]['error'] === UPLOAD_ERR_NO_FILE) {
+            return $existingPath;
+        }
+
+        if ($_FILES[$fieldName]['error'] !== UPLOAD_ERR_OK) {
+            $errorMessage = 'Upload failed for ' . str_replace('_', ' ', $fieldName) . '.';
+            return $existingPath;
+        }
+
+        if (!empty($_FILES[$fieldName]['size']) && $_FILES[$fieldName]['size'] > $maxBytes) {
+            $errorMessage = 'Image uploads must be 5MB or smaller.';
+            return $existingPath;
+        }
+
+        $extension = strtolower(pathinfo($_FILES[$fieldName]['name'], PATHINFO_EXTENSION));
+        $allowedTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+        if (!in_array($extension, $allowedTypes, true)) {
+            $errorMessage = 'Images must be JPG, PNG, GIF, or WEBP files.';
+            return $existingPath;
+        }
+
+        if (@getimagesize($_FILES[$fieldName]['tmp_name']) === false) {
+            $errorMessage = 'The uploaded file is not a valid image.';
+            return $existingPath;
+        }
+
+        $safePrefix = preg_replace('/[^A-Za-z0-9_-]/', '_', (string) $prefix);
+        $fileName = $safePrefix . '_' . time() . '_' . uniqid('', true) . '.' . $extension;
+        $targetDir = __DIR__ . '/uploads/' . trim(str_replace('\\', '/', (string) $subdir), '/');
+        if (!is_dir($targetDir) && !mkdir($targetDir, 0775, true) && !is_dir($targetDir)) {
+            $errorMessage = 'Could not create upload directory.';
+            return $existingPath;
+        }
+
+        $targetPath = $targetDir . '/' . $fileName;
+        if (!move_uploaded_file($_FILES[$fieldName]['tmp_name'], $targetPath)) {
+            $errorMessage = 'Could not save the uploaded image.';
+            return $existingPath;
+        }
+
+        if ($existingPath !== '' && hz_upload_path_exists($existingPath)) {
+            $existingFile = hz_upload_filesystem_path($existingPath);
+            $existingReal = realpath($existingFile);
+            $uploadsReal = realpath(__DIR__ . '/uploads');
+            if ($existingReal && $uploadsReal && is_file($existingReal) && strpos($existingReal, $uploadsReal) === 0) {
+                @unlink($existingFile);
+            }
+        }
+
+        return hz_upload_public_path($subdir, $fileName);
+    }
+}
 ?>

@@ -5,23 +5,12 @@ require_once 'header.php';
 
 function hz_admin_upload_path_exists(?string $path): bool
 {
-    $path = trim((string) $path);
-    if ($path === '') {
-        return false;
-    }
-
-    if (preg_match('/^https?:\/\//i', $path)) {
-        return true;
-    }
-
-    $normalized = ltrim(str_replace('../', '', str_replace('\\', '/', $path)), '/');
-    return is_file(dirname(__DIR__) . '/' . $normalized);
+    return hz_upload_path_exists($path);
 }
 
 function hz_admin_upload_href(?string $path): string
 {
-    $normalized = ltrim(str_replace('../', '', str_replace('\\', '/', (string) $path)), '/');
-    return '../' . $normalized;
+    return hz_upload_href($path);
 }
 
 // handle message/error display (left in place in case other flows set them)
