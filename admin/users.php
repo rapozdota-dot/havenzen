@@ -1099,8 +1099,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['id'])
 
                 // Show profile picture if exists
                 const preview = document.getElementById('edit_profile_picture_preview');
-                if (user.profile_picture) {
-                    preview.src = user.profile_picture;
+                if (user.profile_picture_url) {
+                    preview.src = user.profile_picture_url;
                     preview.style.display = 'block';
                 } else {
                     preview.style.display = 'none';

@@ -134,15 +134,94 @@ if (!function_exists('hz_upload_public_path')) {
     }
 }
 
+if (!function_exists('hz_normalize_upload_path')) {
+    function hz_normalize_upload_path($path)
+    {
+        $path = trim(str_replace('\\', '/', (string) $path));
+        $path = strtok($path, '?') ?: $path;
+        $path = ltrim($path, '/');
+
+        while (strpos($path, '../') === 0) {
+            $path = substr($path, 3);
+        }
+
+        if (strpos($path, 'uploads/') !== 0) {
+            return '';
+        }
+
+        $parts = [];
+        foreach (explode('/', $path) as $part) {
+            if ($part === '' || $part === '.') {
+                continue;
+            }
+            if ($part === '..') {
+                return '';
+            }
+            $parts[] = $part;
+        }
+
+        return implode('/', $parts);
+    }
+}
+
 if (!function_exists('hz_upload_filesystem_path')) {
     function hz_upload_filesystem_path($publicPath)
     {
-        $normalized = ltrim(str_replace('\\', '/', (string) $publicPath), '/');
-        while (strpos($normalized, '../') === 0) {
-            $normalized = substr($normalized, 3);
+        $normalized = hz_normalize_upload_path($publicPath);
+        return __DIR__ . '/' . $normalized;
+    }
+}
+
+if (!function_exists('hz_ensure_uploaded_files_table')) {
+    function hz_ensure_uploaded_files_table($connection = null)
+    {
+        static $checked = false;
+        if ($checked) {
+            return true;
         }
 
-        return __DIR__ . '/' . $normalized;
+        $connection = $connection ?: ($GLOBALS['conn'] ?? null);
+        if (!$connection) {
+            return false;
+        }
+
+        $isPostgres = class_exists('PgCompatConnection') && $connection instanceof PgCompatConnection;
+        $dataType = $isPostgres ? 'TEXT' : 'LONGTEXT';
+        $sql = "
+            CREATE TABLE IF NOT EXISTS uploaded_files (
+                file_path VARCHAR(255) PRIMARY KEY,
+                mime_type VARCHAR(100) NOT NULL,
+                file_data {$dataType} NOT NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        ";
+
+        $checked = (bool) $connection->query($sql);
+        return $checked;
+    }
+}
+
+if (!function_exists('hz_upload_db_path_exists')) {
+    function hz_upload_db_path_exists($path, $connection = null)
+    {
+        $connection = $connection ?: ($GLOBALS['conn'] ?? null);
+        $normalized = hz_normalize_upload_path($path);
+        if (!$connection || $normalized === '' || !hz_ensure_uploaded_files_table($connection)) {
+            return false;
+        }
+
+        $stmt = $connection->prepare('SELECT file_path FROM uploaded_files WHERE file_path = ? LIMIT 1');
+        if (!$stmt) {
+            return false;
+        }
+
+        $stmt->bind_param('s', $normalized);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $exists = $result && $result->num_rows > 0;
+        $stmt->close();
+
+        return $exists;
     }
 }
 
@@ -158,7 +237,7 @@ if (!function_exists('hz_upload_path_exists')) {
             return true;
         }
 
-        return is_file(hz_upload_filesystem_path($path));
+        return is_file(hz_upload_filesystem_path($path)) || hz_upload_db_path_exists($path);
     }
 }
 
@@ -170,12 +249,100 @@ if (!function_exists('hz_upload_href')) {
             return $path;
         }
 
-        $normalized = ltrim(str_replace('\\', '/', $path), '/');
-        while (strpos($normalized, '../') === 0) {
-            $normalized = substr($normalized, 3);
+        $normalized = hz_normalize_upload_path($path);
+        if ($normalized === '') {
+            return '';
         }
 
-        return '../' . $normalized;
+        return '../uploaded_file.php?path=' . rawurlencode($normalized);
+    }
+}
+
+if (!function_exists('hz_persist_uploaded_file')) {
+    function hz_persist_uploaded_file($path, $mimeType, $bytes, &$errorMessage = null, $connection = null)
+    {
+        $connection = $connection ?: ($GLOBALS['conn'] ?? null);
+        $normalized = hz_normalize_upload_path($path);
+        if (!$connection || $normalized === '') {
+            $errorMessage = 'Could not persist uploaded image.';
+            return false;
+        }
+
+        if (!hz_ensure_uploaded_files_table($connection)) {
+            $errorMessage = 'Could not prepare upload storage.';
+            return false;
+        }
+
+        $deleteStmt = $connection->prepare('DELETE FROM uploaded_files WHERE file_path = ?');
+        if ($deleteStmt) {
+            $deleteStmt->bind_param('s', $normalized);
+            $deleteStmt->execute();
+            $deleteStmt->close();
+        }
+
+        $encoded = base64_encode($bytes);
+        $stmt = $connection->prepare('INSERT INTO uploaded_files (file_path, mime_type, file_data) VALUES (?, ?, ?)');
+        if (!$stmt) {
+            $errorMessage = 'Could not prepare upload persistence.';
+            return false;
+        }
+
+        $stmt->bind_param('sss', $normalized, $mimeType, $encoded);
+        $ok = $stmt->execute();
+        if (!$ok) {
+            $errorMessage = 'Could not persist uploaded image.';
+        }
+        $stmt->close();
+
+        return $ok;
+    }
+}
+
+if (!function_exists('hz_fetch_uploaded_file')) {
+    function hz_fetch_uploaded_file($path, $connection = null)
+    {
+        $connection = $connection ?: ($GLOBALS['conn'] ?? null);
+        $normalized = hz_normalize_upload_path($path);
+        if (!$connection || $normalized === '') {
+            return null;
+        }
+
+        if (is_file(hz_upload_filesystem_path($normalized))) {
+            $filePath = hz_upload_filesystem_path($normalized);
+            return [
+                'mime_type' => mime_content_type($filePath) ?: 'application/octet-stream',
+                'bytes' => file_get_contents($filePath),
+            ];
+        }
+
+        if (!hz_ensure_uploaded_files_table($connection)) {
+            return null;
+        }
+
+        $stmt = $connection->prepare('SELECT mime_type, file_data FROM uploaded_files WHERE file_path = ? LIMIT 1');
+        if (!$stmt) {
+            return null;
+        }
+
+        $stmt->bind_param('s', $normalized);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $row = $result ? $result->fetch_assoc() : null;
+        $stmt->close();
+
+        if (!$row) {
+            return null;
+        }
+
+        $bytes = base64_decode((string) $row['file_data'], true);
+        if ($bytes === false) {
+            return null;
+        }
+
+        return [
+            'mime_type' => $row['mime_type'] ?: 'application/octet-stream',
+            'bytes' => $bytes,
+        ];
     }
 }
 
@@ -208,8 +375,15 @@ if (!function_exists('hz_store_uploaded_image')) {
             return $existingPath;
         }
 
+        $imageBytes = file_get_contents($_FILES[$fieldName]['tmp_name']);
+        if ($imageBytes === false) {
+            $errorMessage = 'Could not read the uploaded image.';
+            return $existingPath;
+        }
+
         $safePrefix = preg_replace('/[^A-Za-z0-9_-]/', '_', (string) $prefix);
         $fileName = $safePrefix . '_' . time() . '_' . uniqid('', true) . '.' . $extension;
+        $publicPath = hz_upload_public_path($subdir, $fileName);
         $targetDir = __DIR__ . '/uploads/' . trim(str_replace('\\', '/', (string) $subdir), '/');
         if (!is_dir($targetDir) && !mkdir($targetDir, 0775, true) && !is_dir($targetDir)) {
             $errorMessage = 'Could not create upload directory.';
@@ -222,6 +396,12 @@ if (!function_exists('hz_store_uploaded_image')) {
             return $existingPath;
         }
 
+        $mimeType = mime_content_type($targetPath) ?: ('image/' . ($extension === 'jpg' ? 'jpeg' : $extension));
+        if (!hz_persist_uploaded_file($publicPath, $mimeType, $imageBytes, $errorMessage)) {
+            @unlink($targetPath);
+            return $existingPath;
+        }
+
         if ($existingPath !== '' && hz_upload_path_exists($existingPath)) {
             $existingFile = hz_upload_filesystem_path($existingPath);
             $existingReal = realpath($existingFile);
@@ -231,7 +411,7 @@ if (!function_exists('hz_store_uploaded_image')) {
             }
         }
 
-        return hz_upload_public_path($subdir, $fileName);
+        return $publicPath;
     }
 }
 ?>

@@ -31,6 +31,11 @@ if (isset($_GET['id'])) {
     WHERE u.user_id = $user_id";
     
     $user = $conn->query($sql)->fetch_assoc();
+    if ($user && !empty($user['profile_picture'])) {
+        $user['profile_picture_url'] = hz_upload_href($user['profile_picture']);
+    } elseif ($user) {
+        $user['profile_picture_url'] = '';
+    }
     
     header('Content-Type: application/json');
     echo json_encode($user);
