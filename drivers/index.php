@@ -7,6 +7,10 @@ date_default_timezone_set('Asia/Manila'); // Change this to your timezone if nee
 
 // Use user_id for bookings (matches bookings.driver_id), and profile id for earnings
 $today_date = date('Y-m-d');
+$today_start = date('Y-m-d 00:00:00');
+$tomorrow_start = date('Y-m-d 00:00:00', strtotime('+1 day'));
+$month_start = date('Y-m-01 00:00:00');
+$next_month_start = date('Y-m-01 00:00:00', strtotime('+1 month'));
 
 // Today's bookings (by user_id stored in bookings.driver_id)
 $today_bookings_query = $conn->query("
@@ -110,6 +114,37 @@ if (isset($driver_data['vehicle_id']) && !empty($driver_data['vehicle_id'])) {
     }
 }
 
+$vehicle_trip_stats = [
+    'today' => 0,
+    'month' => 0
+];
+$vehicle_id_for_stats = intval($vehicle_info['vehicle_id'] ?? 0);
+
+if ($vehicle_id_for_stats > 0) {
+    $vehicle_trip_stats_query = $conn->query("
+        SELECT
+            SUM(CASE
+                WHEN COALESCE(completed_at, scheduled_departure_at) >= '$today_start'
+                 AND COALESCE(completed_at, scheduled_departure_at) < '$tomorrow_start'
+                THEN 1 ELSE 0
+            END) AS trips_today,
+            SUM(CASE
+                WHEN COALESCE(completed_at, scheduled_departure_at) >= '$month_start'
+                 AND COALESCE(completed_at, scheduled_departure_at) < '$next_month_start'
+                THEN 1 ELSE 0
+            END) AS trips_month
+        FROM vehicle_trips
+        WHERE vehicle_id = $vehicle_id_for_stats
+          AND trip_status = 'completed'
+    ");
+
+    if ($vehicle_trip_stats_query) {
+        $vehicle_trip_stats_result = $vehicle_trip_stats_query->fetch_assoc();
+        $vehicle_trip_stats['today'] = intval($vehicle_trip_stats_result['trips_today'] ?? 0);
+        $vehicle_trip_stats['month'] = intval($vehicle_trip_stats_result['trips_month'] ?? 0);
+    }
+}
+
 // Debug: Check what vehicle info we have
 // echo "<pre>"; print_r($vehicle_info); echo "</pre>";
 ?>
@@ -150,6 +185,22 @@ if (isset($driver_data['vehicle_id']) && !empty($driver_data['vehicle_id'])) {
             <div class="stat-icon"><i class="fas fa-star"></i></div>
             <div class="stat-number"><?php echo $vehicle_info['total_bookings'] ?? 0; ?></div>
             <div class="stat-label">Total Bookings</div>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-content">
+            <div class="stat-icon"><i class="fas fa-road"></i></div>
+            <div class="stat-number"><?php echo $vehicle_trip_stats['today']; ?></div>
+            <div class="stat-label">Vehicle Trips Today</div>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-content">
+            <div class="stat-icon"><i class="fas fa-calendar-alt"></i></div>
+            <div class="stat-number"><?php echo $vehicle_trip_stats['month']; ?></div>
+            <div class="stat-label">Vehicle Trips This Month</div>
         </div>
     </div>
 </div>
@@ -342,6 +393,14 @@ if (isset($driver_data['vehicle_id']) && !empty($driver_data['vehicle_id'])) {
             <div class="vehicle-detail">
                 <span class="detail-label">Total Bookings</span>
                 <span class="detail-value"><?php echo $vehicle_info['total_bookings'] ?? 0; ?></span>
+            </div>
+            <div class="vehicle-detail">
+                <span class="detail-label">Trips Today</span>
+                <span class="detail-value"><?php echo $vehicle_trip_stats['today']; ?></span>
+            </div>
+            <div class="vehicle-detail">
+                <span class="detail-label">Trips This Month</span>
+                <span class="detail-value"><?php echo $vehicle_trip_stats['month']; ?></span>
             </div>
             <?php if (!empty($vehicle_info['model_year'])): ?>
             <div class="vehicle-detail">

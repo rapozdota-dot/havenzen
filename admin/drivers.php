@@ -3,6 +3,8 @@ require_once 'auth.php';
 $page_title = "Driver Management";
 require_once 'header.php';
 
+date_default_timezone_set('Asia/Manila');
+
 function hz_admin_upload_path_exists(?string $path): bool
 {
     return hz_upload_path_exists($path);
@@ -14,6 +16,10 @@ function hz_admin_upload_href(?string $path): string
 }
 
 // handle message/error display (left in place in case other flows set them)
+$todayStart = date('Y-m-d 00:00:00');
+$tomorrowStart = date('Y-m-d 00:00:00', strtotime('+1 day'));
+$monthStart = date('Y-m-01 00:00:00');
+$nextMonthStart = date('Y-m-01 00:00:00', strtotime('+1 month'));
 ?>
 
 <?php if (isset($message)): ?>
@@ -42,6 +48,8 @@ function hz_admin_upload_href(?string $path): string
                 <th>Phone Number</th>
                 <th>License Images</th>
                 <th>Assigned Vehicle</th>
+                <th>Trips Today</th>
+                <th>Trips This Month</th>
                 <th>Registered Date</th>
                 <th>Availability</th>
             </tr>
@@ -57,7 +65,24 @@ function hz_admin_upload_href(?string $path): string
                     d.license_front_image,
                     d.license_back_image,
                     d.created_at,
-                    v.vehicle_name
+                    v.vehicle_id,
+                    v.vehicle_name,
+                    (
+                        SELECT COUNT(*)
+                        FROM vehicle_trips vt
+                        WHERE vt.vehicle_id = v.vehicle_id
+                          AND vt.trip_status = 'completed'
+                          AND COALESCE(vt.completed_at, vt.scheduled_departure_at) >= '$todayStart'
+                          AND COALESCE(vt.completed_at, vt.scheduled_departure_at) < '$tomorrowStart'
+                    ) AS trips_today,
+                    (
+                        SELECT COUNT(*)
+                        FROM vehicle_trips vt
+                        WHERE vt.vehicle_id = v.vehicle_id
+                          AND vt.trip_status = 'completed'
+                          AND COALESCE(vt.completed_at, vt.scheduled_departure_at) >= '$monthStart'
+                          AND COALESCE(vt.completed_at, vt.scheduled_departure_at) < '$nextMonthStart'
+                    ) AS trips_month
                 FROM users u
                 JOIN drivers d ON d.user_id = u.user_id
                 LEFT JOIN vehicles v ON v.driver_id = u.user_id
@@ -86,6 +111,8 @@ function hz_admin_upload_href(?string $path): string
                     <?php endif; ?>
                 </td>
                 <td><?php echo $driver['vehicle_name'] ? htmlspecialchars($driver['vehicle_name']) : 'Not Assigned'; ?></td>
+                <td><?php echo intval($driver['trips_today'] ?? 0); ?></td>
+                <td><?php echo intval($driver['trips_month'] ?? 0); ?></td>
                 <td><?php echo date('M j, Y', strtotime($driver['created_at'])); ?></td>
                 <td>
                     <a href="driver_availability.php?driver_id=<?php echo $driver['user_id']; ?>" class="btn btn-secondary btn-sm">
