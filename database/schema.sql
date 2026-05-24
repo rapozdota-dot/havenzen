@@ -415,6 +415,7 @@ CREATE TABLE `vehicles` (
   `license_plate` varchar(15) NOT NULL,
   `vehicle_type` varchar(50) DEFAULT NULL,
   `vehicle_color` varchar(50) DEFAULT NULL,
+  `vehicle_model` varchar(100) DEFAULT NULL,
   `seat_capacity` int(11) NOT NULL DEFAULT 0,
   `driver_id` int(11) DEFAULT NULL,
   `route_id` int(11) DEFAULT NULL,

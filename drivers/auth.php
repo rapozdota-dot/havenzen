@@ -71,6 +71,7 @@ $stmt = $conn->prepare("
         v.vehicle_id,
         v.vehicle_name,
         v.license_plate,
+        v.vehicle_model,
         v.vehicle_type,
         v.vehicle_color,
         v.status as vehicle_status

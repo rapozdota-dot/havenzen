@@ -1,6 +1,7 @@
 <?php
 require_once 'auth.php';
 require_once '../lib/trip_helpers.php';
+require_once '../lib/vehicle_helpers.php';
 
 $selected_date = $_GET['date'] ?? date('Y-m-d');
 $selected_date = date('Y-m-d', strtotime($selected_date));
@@ -42,6 +43,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 COALESCE(vt.driver_id, vs.driver_id, v.driver_id) AS driver_id,
                 v.vehicle_name,
                 v.license_plate,
+                v.vehicle_model,
+                v.vehicle_type,
                 d.full_name AS driver_name,
                 d.phone_number AS driver_phone,
                 r.route_name,
@@ -138,7 +141,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 if ($conn->query($sql)) {
                     $booking_id = $conn->insert_id;
-                    $success_message = 'Seat reserved successfully for ' . date('M j, Y g:i A', strtotime($trip['scheduled_departure_at'])) . ' on ' . $trip['vehicle_name'] . '. Total bill: PHP ' . number_format($fare, 2) . '. Seats left after booking: ' . $seats_left_at_booking . '.';
+                    $success_message = 'Seat reserved successfully for ' . date('M j, Y g:i A', strtotime($trip['scheduled_departure_at'])) . ' on ' . hz_vehicle_display_label($trip) . '. Total bill: PHP ' . number_format($fare, 2) . '. Seats left after booking: ' . $seats_left_at_booking . '.';
                     logCRUD($conn, $user_id, 'CREATE', 'bookings', $booking_id, 'Booked scheduled trip #' . $trip_id . '; Fare tier: ' . $fare_tier_percent . '%; Baggage: ' . $baggage_count . '; Seats left: ' . $seats_left_at_booking . '; Total bill: PHP ' . number_format($fare, 2));
 
                     if (!empty($trip['driver_id'])) {
@@ -146,7 +149,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $conn,
                             intval($trip['driver_id']),
                             'scheduled_booking',
-                            'A passenger booked a seat on ' . $trip['vehicle_name'] . ' for ' . date('M j, g:i A', strtotime($trip['scheduled_departure_at'])),
+                            'A passenger booked a seat on ' . hz_vehicle_display_label($trip) . ' for ' . date('M j, g:i A', strtotime($trip['scheduled_departure_at'])),
                             [
                                 'booking_id' => $booking_id,
                                 'trip_id' => $trip_id,
@@ -212,7 +215,7 @@ if ($routeResult) {
 
 $vehicleOptions = [];
 $vehicleResult = $conn->query("
-    SELECT vehicle_id, vehicle_name, seat_capacity
+    SELECT vehicle_id, vehicle_name, license_plate, vehicle_model, vehicle_type, seat_capacity
     FROM vehicles
     WHERE status = 'active'
     ORDER BY vehicle_name ASC
@@ -229,6 +232,8 @@ $tripSql = "
         COALESCE(vt.driver_id, vs.driver_id, v.driver_id) AS driver_id,
         v.vehicle_name,
         v.license_plate,
+        v.vehicle_model,
+        v.vehicle_type,
         v.seat_capacity,
         d.full_name AS driver_name,
         d.phone_number AS driver_phone,
@@ -292,6 +297,9 @@ $bookingResult = $conn->query("
     SELECT
         b.*,
         v.vehicle_name,
+        v.license_plate,
+        v.vehicle_model,
+        v.vehicle_type,
         d.full_name AS driver_name,
         d.phone_number AS driver_phone,
         r.route_name
@@ -444,7 +452,7 @@ require_once 'header.php';
                 <option value="0">Any vehicle</option>
                 <?php foreach ($vehicleOptions as $vehicle): ?>
                     <option value="<?php echo intval($vehicle['vehicle_id']); ?>" <?php echo intval($vehicle['vehicle_id']) === $selected_vehicle_id ? 'selected' : ''; ?>>
-                        <?php echo htmlspecialchars($vehicle['vehicle_name'] . ' (' . intval($vehicle['seat_capacity']) . ' seats)'); ?>
+                        <?php echo htmlspecialchars(hz_vehicle_display_label($vehicle, true)); ?>
                     </option>
                 <?php endforeach; ?>
             </select>
@@ -471,7 +479,7 @@ require_once 'header.php';
     <?php foreach ($availableTrips as $trip): ?>
         <div class="trip-card">
             <h3><?php echo htmlspecialchars($trip['route_name']); ?></h3>
-            <p><strong><?php echo htmlspecialchars($trip['vehicle_name']); ?></strong> &bull; Plate <?php echo htmlspecialchars($trip['license_plate']); ?></p>
+            <p><strong><?php echo htmlspecialchars($trip['vehicle_name']); ?></strong> &bull; <?php echo htmlspecialchars(hz_vehicle_detail_line($trip)); ?></p>
             <p>
                 <strong>Driver:</strong>
                 <?php if (!empty($trip['driver_name'])): ?>
@@ -521,7 +529,7 @@ require_once 'header.php';
                   onsubmit="return confirmTripBooking(this);"
                   data-route="<?php echo htmlspecialchars($trip['route_name'], ENT_QUOTES); ?>"
                   data-departure="<?php echo htmlspecialchars(date('M j, Y g:i A', strtotime($trip['scheduled_departure_at'])), ENT_QUOTES); ?>"
-                  data-vehicle="<?php echo htmlspecialchars($trip['vehicle_name'] . ' (' . $trip['license_plate'] . ')', ENT_QUOTES); ?>"
+                  data-vehicle="<?php echo htmlspecialchars(hz_vehicle_display_label($trip), ENT_QUOTES); ?>"
                   data-driver="<?php echo htmlspecialchars(!empty($trip['driver_name']) ? $trip['driver_name'] : 'To be assigned by admin', ENT_QUOTES); ?>"
                   data-fare="<?php echo htmlspecialchars(number_format((float) $trip['fare'], 2, '.', ''), ENT_QUOTES); ?>"
                   data-baggage-fee="<?php echo intval(BAGGAGE_FEE_PER_BAG); ?>"
@@ -592,7 +600,14 @@ require_once 'header.php';
                             ?>
                         </td>
                         <td data-label="Route"><?php echo htmlspecialchars($booking['route_name'] ?: ($booking['pickup_location'] . ' to ' . $booking['dropoff_location'])); ?></td>
-                        <td data-label="Vehicle"><?php echo htmlspecialchars($booking['vehicle_name'] ?: 'Unassigned'); ?></td>
+                        <td data-label="Vehicle">
+                            <?php if (!empty($booking['vehicle_name'])): ?>
+                                <strong><?php echo htmlspecialchars($booking['vehicle_name']); ?></strong><br>
+                                <small><?php echo htmlspecialchars(hz_vehicle_detail_line($booking)); ?></small>
+                            <?php else: ?>
+                                Unassigned
+                            <?php endif; ?>
+                        </td>
                         <td data-label="Driver">
                             <?php if (!empty($booking['driver_name'])): ?>
                                 <?php echo htmlspecialchars($booking['driver_name']); ?>

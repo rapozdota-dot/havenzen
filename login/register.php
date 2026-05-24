@@ -188,21 +188,24 @@ $conn->close();
         body.register-page {
             align-items: flex-start;
             min-height: 100vh;
-            background: #f3f6fb;
+            background: #eef3f8;
         }
 
         .register-page .container {
             max-width: 1180px;
-            padding: 28px 20px;
+            min-height: 100vh;
+            justify-content: center;
+            padding: 32px 22px;
         }
 
         .register-page .header-text {
-            margin-bottom: 18px;
+            margin-bottom: 20px;
         }
 
         .register-page .header-text h1 {
-            font-size: 1.8rem;
-            margin-bottom: 4px;
+            font-size: 1.65rem;
+            margin-bottom: 6px;
+            letter-spacing: 0;
         }
 
         .register-page .header-text p {
@@ -210,35 +213,40 @@ $conn->close();
         }
 
         .register-page .card-container {
-            max-width: 1040px;
+            max-width: 1080px;
             align-items: stretch;
-            border-radius: 14px;
+            border-radius: 10px;
+            box-shadow: 0 18px 50px rgba(15, 23, 42, 0.12);
+            border: 1px solid rgba(148, 163, 184, 0.22);
         }
 
         .register-page .form-section {
-            flex: 1 1 680px;
-            padding: 32px;
+            flex: 1 1 720px;
+            padding: 34px;
         }
 
         .register-page .illustration-section {
-            flex: 0 0 300px;
-            padding: 32px 28px;
+            flex: 0 0 320px;
+            padding: 36px 30px;
             background:
-                linear-gradient(155deg, rgba(17, 24, 39, 0.92), rgba(44, 62, 80, 0.86)),
-                linear-gradient(135deg, #e91e63, #0f766e);
+                linear-gradient(155deg, rgba(15, 23, 42, 0.95), rgba(30, 64, 88, 0.88)),
+                linear-gradient(135deg, #d81b60, #0f766e);
+            justify-content: center;
+            gap: 28px;
         }
 
         .register-page .bus-animation {
-            width: 82px;
-            height: 82px;
+            width: 76px;
+            height: 76px;
             border: 2px solid rgba(255, 255, 255, 0.36);
-            border-radius: 50%;
+            border-radius: 12px;
             display: grid;
             place-items: center;
-            font-size: 1.5rem;
+            font-size: 1.35rem;
             font-weight: 800;
-            letter-spacing: 0.06em;
+            letter-spacing: 0;
             background: rgba(255, 255, 255, 0.12);
+            margin-bottom: 0;
         }
 
         .register-page .illustration-text h3 {
@@ -250,8 +258,8 @@ $conn->close();
         }
 
         .register-page .form-section h2 {
-            margin-bottom: 24px;
-            font-size: 1.45rem;
+            margin-bottom: 22px;
+            font-size: 1.38rem;
         }
 
         .register-label {
@@ -272,11 +280,11 @@ $conn->close();
         .role-option {
             position: relative;
             border: 1px solid rgba(233, 30, 99, 0.25);
-            border-radius: 10px;
+            border-radius: 8px;
             padding: 12px 14px;
             cursor: pointer;
             background: #fff;
-            transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+            transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
         }
 
         .role-option input {
@@ -323,6 +331,7 @@ $conn->close();
         .role-option:has(input:checked) {
             border-color: #e91e63;
             background: rgba(233, 30, 99, 0.08);
+            box-shadow: 0 0 0 3px rgba(233, 30, 99, 0.08);
             transform: translateY(-1px);
         }
 
@@ -370,7 +379,7 @@ $conn->close();
         .driver-fields {
             display: none;
             padding: 18px;
-            border-radius: 12px;
+            border-radius: 8px;
             background: #f8fafc;
             border: 1px solid #e2e8f0;
             margin: 18px 0;
@@ -388,7 +397,7 @@ $conn->close();
 
         .password-rules {
             display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-columns: repeat(5, minmax(0, 1fr));
             gap: 8px;
             margin-top: 10px;
             font-size: 0.78rem;
@@ -398,23 +407,25 @@ $conn->close();
             display: inline-flex;
             align-items: center;
             gap: 7px;
-            min-height: 28px;
-            padding: 5px 8px;
-            border-radius: 999px;
+            min-height: 34px;
+            padding: 6px 9px;
+            border-radius: 8px;
             border: 1px solid #fecaca;
             background: #fff7f7;
             color: #991b1b;
             font-weight: 600;
+            line-height: 1.1;
         }
 
         .password-rule::before {
             content: "";
-            width: 12px;
-            height: 12px;
-            flex: 0 0 12px;
+            width: 14px;
+            height: 14px;
+            flex: 0 0 14px;
             border-radius: 50%;
             border: 2px solid #ef4444;
             background: #fff;
+            box-shadow: inset 0 0 0 3px #fee2e2;
         }
 
         .password-rule.is-valid {
@@ -452,6 +463,12 @@ $conn->close();
 
             .register-page .illustration-section {
                 flex-basis: auto;
+                gap: 22px;
+                justify-content: center;
+            }
+
+            .password-rules {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
             }
         }
 
@@ -520,6 +537,11 @@ $conn->close();
                         <div class="form-group field-span-2">
                             <label for="password">Password *</label>
                             <input type="password" id="password" name="password" placeholder="Create a strong password" required>
+                        </div>
+
+                        <div class="form-group field-span-2">
+                            <label for="confirm_password">Type Password Again *</label>
+                            <input type="password" id="confirm_password" name="confirm_password" placeholder="Re-enter password" required>
                             <div class="password-rules" aria-live="polite">
                                 <span class="password-rule" data-rule="length">6+ characters</span>
                                 <span class="password-rule" data-rule="upper">Uppercase letter</span>
@@ -527,11 +549,6 @@ $conn->close();
                                 <span class="password-rule" data-rule="number">Number</span>
                                 <span class="password-rule" data-rule="match">Passwords match</span>
                             </div>
-                        </div>
-
-                        <div class="form-group field-span-2">
-                            <label for="confirm_password">Type Password Again *</label>
-                            <input type="password" id="confirm_password" name="confirm_password" placeholder="Re-enter password" required>
                         </div>
 
                         <div class="form-group">

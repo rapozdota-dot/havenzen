@@ -1,5 +1,6 @@
 <?php
 require_once 'auth.php';
+require_once '../lib/vehicle_helpers.php';
 
 $booking_id = isset($_GET['booking_id']) ? intval($_GET['booking_id']) : null;
 
@@ -11,7 +12,7 @@ if (!$booking_id) {
 // Get booking details
 $booking_query = $conn->query("
     SELECT b.*, 
-           v.vehicle_name, v.vehicle_id, v.license_plate, v.vehicle_type, d.full_name as driver_name, d.phone_number, 
+           v.vehicle_name, v.vehicle_id, v.license_plate, v.vehicle_model, v.vehicle_type, d.full_name as driver_name, d.phone_number,
            l.latitude, l.longitude, l.timestamp
     FROM bookings b
     LEFT JOIN vehicles v ON b.vehicle_id = v.vehicle_id
@@ -305,7 +306,7 @@ require_once 'header.php';
                 <div class="driver-card">
                     <div class="driver-avatar">🚕</div>
                     <h3><?php echo htmlspecialchars($booking['driver_name']); ?></h3>
-                    <p><?php echo $booking['vehicle_type'] ?? 'Vehicle'; ?> • <?php echo $booking['license_plate']; ?></p>
+                    <p><?php echo htmlspecialchars(hz_vehicle_detail_line($booking)); ?></p>
                     <a href="tel:<?php echo $booking['phone_number']; ?>" class="contact-button">
                         <i class="fas fa-phone"></i> Call Driver
                     </a>
@@ -358,7 +359,10 @@ require_once 'header.php';
 
             <div class="detail-item">
                 <div class="detail-label">🚌 Vehicle</div>
-                <div class="detail-value"><?php echo htmlspecialchars($booking['vehicle_name']); ?></div>
+                <div class="detail-value">
+                    <strong><?php echo htmlspecialchars($booking['vehicle_name']); ?></strong><br>
+                    <small><?php echo htmlspecialchars(hz_vehicle_detail_line($booking)); ?></small>
+                </div>
             </div>
 
             <div class="detail-item">

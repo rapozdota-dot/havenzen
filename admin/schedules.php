@@ -1,6 +1,7 @@
 <?php
 require_once 'auth.php';
 require_once '../lib/trip_helpers.php';
+require_once '../lib/vehicle_helpers.php';
 
 $page_title = 'Trip Schedules';
 $selected_date = $_GET['date'] ?? date('Y-m-d');
@@ -122,7 +123,7 @@ hz_generate_trips_for_date($conn, $selected_date);
 hz_expire_overdue_no_shows($conn);
 
 $vehicles = [];
-$vehicleResult = $conn->query("SELECT vehicle_id, vehicle_name, license_plate, seat_capacity FROM vehicles ORDER BY vehicle_name ASC");
+$vehicleResult = $conn->query("SELECT vehicle_id, vehicle_name, license_plate, vehicle_model, vehicle_type, seat_capacity FROM vehicles ORDER BY vehicle_name ASC");
 if ($vehicleResult) {
     while ($row = $vehicleResult->fetch_assoc()) {
         $vehicles[] = $row;
@@ -150,6 +151,9 @@ $scheduleResult = $conn->query("
     SELECT
         vs.*,
         v.vehicle_name,
+        v.license_plate,
+        v.vehicle_model,
+        v.vehicle_type,
         v.seat_capacity,
         d.full_name AS schedule_driver_name,
         d.phone_number AS schedule_driver_phone,
@@ -175,6 +179,9 @@ $tripResult = $conn->query("
     SELECT
         vt.*,
         v.vehicle_name,
+        v.license_plate,
+        v.vehicle_model,
+        v.vehicle_type,
         d.full_name AS trip_driver_name,
         r.route_name
     FROM vehicle_trips vt
@@ -350,7 +357,7 @@ require_once 'header.php';
                     <option value="">Select vehicle</option>
                     <?php foreach ($vehicles as $vehicle): ?>
                         <option value="<?php echo intval($vehicle['vehicle_id']); ?>">
-                            <?php echo htmlspecialchars($vehicle['vehicle_name'] . ' - ' . $vehicle['license_plate'] . ' (' . intval($vehicle['seat_capacity']) . ' seats)'); ?>
+                            <?php echo htmlspecialchars(hz_vehicle_display_label($vehicle, true)); ?>
                         </option>
                     <?php endforeach; ?>
                 </select>
@@ -461,7 +468,7 @@ require_once 'header.php';
                 <tr>
                     <td>
                         <strong><?php echo htmlspecialchars($schedule['vehicle_name']); ?></strong><br>
-                        <small><?php echo intval($schedule['seat_capacity']); ?> seats</small>
+                        <small><?php echo htmlspecialchars(hz_vehicle_detail_line($schedule)); ?> &bull; <?php echo intval($schedule['seat_capacity']); ?> seats</small>
                     </td>
                     <td>
                         <?php if (!empty($schedule['schedule_driver_name'])): ?>
@@ -494,7 +501,7 @@ require_once 'header.php';
                                     <select name="vehicle_id" required>
                                         <?php foreach ($vehicles as $vehicle): ?>
                                             <option value="<?php echo intval($vehicle['vehicle_id']); ?>" <?php echo intval($vehicle['vehicle_id']) === intval($schedule['vehicle_id']) ? 'selected' : ''; ?>>
-                                                <?php echo htmlspecialchars($vehicle['vehicle_name'] . ' - ' . $vehicle['license_plate']); ?>
+                                                <?php echo htmlspecialchars(hz_vehicle_display_label($vehicle, true)); ?>
                                             </option>
                                         <?php endforeach; ?>
                                     </select>
@@ -599,7 +606,10 @@ require_once 'header.php';
             <?php foreach ($todayTrips as $trip): ?>
                 <tr>
                     <td><?php echo date('M j, g:i A', strtotime($trip['scheduled_departure_at'])); ?></td>
-                    <td><?php echo htmlspecialchars($trip['vehicle_name']); ?></td>
+                    <td>
+                        <strong><?php echo htmlspecialchars($trip['vehicle_name']); ?></strong><br>
+                        <small><?php echo htmlspecialchars(hz_vehicle_detail_line($trip)); ?></small>
+                    </td>
                     <td><?php echo !empty($trip['trip_driver_name']) ? htmlspecialchars($trip['trip_driver_name']) : '<span class="schedule-driver-muted">Vehicle default</span>'; ?></td>
                     <td><?php echo htmlspecialchars($trip['route_name']); ?></td>
                     <td><?php echo ucfirst($trip['direction']); ?></td>

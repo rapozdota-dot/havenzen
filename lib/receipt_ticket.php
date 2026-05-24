@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/vehicle_helpers.php';
 
 function hz_fetch_receipt_booking($conn, int $bookingId): ?array
 {
@@ -14,6 +15,7 @@ function hz_fetch_receipt_booking($conn, int $bookingId): ?array
             c.email AS passenger_email,
             v.vehicle_name,
             v.license_plate,
+            v.vehicle_model,
             v.vehicle_type,
             v.vehicle_color,
             COALESCE(vt.seat_capacity_snapshot, v.seat_capacity) AS vehicle_capacity_snapshot,
@@ -139,7 +141,7 @@ function hz_build_receipt_text(array $booking): string
     $routeShort = hz_receipt_clean_text((string) ($booking['route_name'] ?? ''));
     $driverShort = hz_receipt_clean_text((string) (($booking['driver_name'] ?? '') ?: 'Not assigned'));
     $driverPhoneShort = preg_replace('/\s+/', '', (string) ($booking['driver_phone'] ?? ''));
-    $vehicleShort = hz_receipt_clean_text((string) (($booking['vehicle_name'] ?? '') ?: 'Not assigned'));
+    $vehicleShort = hz_receipt_clean_text(hz_vehicle_display_label($booking));
     $notesShort = hz_receipt_clean_text((string) ($booking['notes'] ?? ''));
     $contactShort = preg_replace('/\s+/', '', (string) ($booking['passenger_phone'] ?? ''));
 
@@ -239,7 +241,7 @@ function hz_render_receipt_html(array $booking): string
         ['label' => 'To', 'value' => hz_receipt_clean_text((string) ($booking['dropoff_location'] ?? '')) ?: 'N/A'],
         ['label' => 'Driver', 'value' => hz_receipt_clean_text((string) (($booking['driver_name'] ?? '') ?: 'Not assigned'))],
         ['label' => 'Driver Phone', 'value' => preg_replace('/\s+/', '', (string) ($booking['driver_phone'] ?? '')) ?: 'N/A'],
-        ['label' => 'Vehicle', 'value' => hz_receipt_clean_text((string) (($booking['vehicle_name'] ?? '') ?: 'Not assigned'))],
+        ['label' => 'Vehicle', 'value' => hz_receipt_clean_text(hz_vehicle_display_label($booking))],
         ['label' => 'Plate', 'value' => (string) ($booking['license_plate'] ?? 'N/A')],
         ['label' => 'Fare Option', 'value' => $fareTierLabel !== '' ? $fareTierLabel . ' (' . $fareTierPercent . '%)' : 'Full route (100%)'],
         ['label' => 'Ticket Fare', 'value' => 'PHP ' . number_format($travelFare, 2)],

@@ -1,5 +1,6 @@
 <?php
 require_once 'auth.php';
+require_once '../lib/vehicle_helpers.php';
 require_once 'header.php';
 
 // Use session user id as driver id
@@ -29,6 +30,7 @@ function hz_driver_profile_details($conn, int $driverId): ?array
             v.vehicle_id,
             v.vehicle_name,
             v.license_plate,
+            v.vehicle_model,
             v.vehicle_type,
             v.vehicle_color,
             v.status as vehicle_status
@@ -417,12 +419,19 @@ $driver_details = hz_driver_profile_details($conn, intval($driver_id)) ?: $drive
             <div class="profile-form">
                 <div class="form-grid">
                     <div class="form-group">
-                        <label for="vehicle_name">Vehicle Name/Model</label>
+                        <label for="vehicle_name">Vehicle Name</label>
                         <input type="text" id="vehicle_name" name="vehicle_name" 
                                value="<?php echo htmlspecialchars($driver_details['vehicle_name'] ?? ''); ?>" 
                                readonly>
                     </div>
                     
+                    <div class="form-group">
+                        <label for="vehicle_model">Vehicle Model</label>
+                        <input type="text" id="vehicle_model"
+                               value="<?php echo htmlspecialchars(hz_vehicle_model_text($driver_details)); ?>"
+                               readonly>
+                    </div>
+
                     <div class="form-group">
                         <label for="license_plate">License Plate</label>
                         <input type="text" id="license_plate" name="license_plate" 

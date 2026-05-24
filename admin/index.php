@@ -1,6 +1,7 @@
 <?php
 require_once 'auth.php';
 require_once '../lib/trip_helpers.php';
+require_once '../lib/vehicle_helpers.php';
 
 $page_title = 'Dashboard Overview';
 require_once 'header.php';
@@ -67,6 +68,9 @@ $stats['boarded_passengers'] = $tripBoardedSeats;
 $todayVehicleIncome = $conn->query("
     SELECT
         v.vehicle_name,
+        v.license_plate,
+        v.vehicle_model,
+        v.vehicle_type,
         COUNT(DISTINCT vt.trip_id) AS trip_count,
         COALESCE(SUM(COALESCE(NULLIF(b.fare, 0), b.fare_estimate, 0)), 0) AS gross_income
     FROM vehicles v
@@ -76,7 +80,7 @@ $todayVehicleIncome = $conn->query("
     LEFT JOIN bookings b
         ON b.trip_id = vt.trip_id
        AND b.status = 'completed'
-    GROUP BY v.vehicle_id, v.vehicle_name
+    GROUP BY v.vehicle_id, v.vehicle_name, v.license_plate, v.vehicle_model, v.vehicle_type
     ORDER BY gross_income DESC, trip_count DESC, v.vehicle_name ASC
 ");
 
@@ -164,7 +168,10 @@ $google_maps_script_url = google_maps_script_url('initMap', ['geometry']);
             <?php if ($todayVehicleIncome && $todayVehicleIncome->num_rows > 0): ?>
                 <?php while ($vehicleRow = $todayVehicleIncome->fetch_assoc()): ?>
                     <tr>
-                        <td><?php echo htmlspecialchars($vehicleRow['vehicle_name']); ?></td>
+                        <td>
+                            <strong><?php echo htmlspecialchars($vehicleRow['vehicle_name']); ?></strong><br>
+                            <small><?php echo htmlspecialchars(hz_vehicle_detail_line($vehicleRow)); ?></small>
+                        </td>
                         <td><?php echo intval($vehicleRow['trip_count']); ?></td>
                         <td>PHP <?php echo number_format((float) $vehicleRow['gross_income'], 2); ?></td>
                     </tr>
@@ -317,6 +324,18 @@ function loadVehicleLocations(silent = false) {
         });
 }
 
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, function (char) {
+        return {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        }[char];
+    });
+}
+
 function updateVehicleMap(vehicles) {
     if (vehicles.length === 0) {
         document.getElementById('vehicle-list').innerHTML = '<div class="text-center text-muted py-3">No active vehicles found</div>';
@@ -338,17 +357,23 @@ function updateVehicleMap(vehicles) {
         seenVehicleIds.add(vehicleId);
         const position = { lat: lat, lng: lng };
         const isLive = vehicle.last_update !== null && Number(vehicle.last_update) <= LIVE_LOCATION_SECONDS;
+        const vehicleName = escapeHtml(vehicle.vehicle_name || 'Vehicle');
+        const driverName = escapeHtml(vehicle.driver_name || 'N/A');
+        const plate = escapeHtml(vehicle.license_plate || 'N/A');
+        const model = escapeHtml(vehicle.vehicle_model || vehicle.vehicle_type || 'N/A');
+        const route = escapeHtml(vehicle.route_name || 'Unassigned');
+        const status = escapeHtml(vehicle.status || 'N/A');
         const iconUrl = isLive
             ? 'https://maps.gstatic.com/mapfiles/ms2/micons/bus.png'
             : 'https://maps.google.com/mapfiles/ms/icons/yellow-dot.png';
         const infoHtml = `
                 <div style="min-width: 250px; padding: 15px;">
-                    <h4 style="margin: 0 0 10px 0; color: #333;">${vehicle.vehicle_name}</h4>
-                    <p><strong>Driver:</strong> ${vehicle.driver_name || 'N/A'}</p>
-                    <p><strong>Plate:</strong> ${vehicle.license_plate}</p>
-                    <p><strong>Model:</strong> ${vehicle.vehicle_model || vehicle.vehicle_type || 'N/A'}</p>
-                    <p><strong>Route:</strong> ${vehicle.route_name || 'Unassigned'}</p>
-                    <p><strong>Status:</strong> <span style="color: ${vehicle.status === 'active' ? 'green' : 'orange'}">${vehicle.status}</span></p>
+                    <h4 style="margin: 0 0 10px 0; color: #333;">${vehicleName}</h4>
+                    <p><strong>Driver:</strong> ${driverName}</p>
+                    <p><strong>Plate:</strong> ${plate}</p>
+                    <p><strong>Model:</strong> ${model}</p>
+                    <p><strong>Route:</strong> ${route}</p>
+                    <p><strong>Status:</strong> <span style="color: ${vehicle.status === 'active' ? 'green' : 'orange'}">${status}</span></p>
                     <p><strong>GPS:</strong> ${isLive ? 'Live' : 'Last known'}${vehicle.last_update === null ? '' : ` (${vehicle.last_update}s ago)`}</p>
                     <p><strong>Coordinates:</strong><br>${lat.toFixed(6)}, ${lng.toFixed(6)}</p>
                 </div>
@@ -424,18 +449,24 @@ function updateVehicleList(vehicles) {
         const coordinates = hasLocation
             ? `${parseFloat(vehicle.latitude).toFixed(6)}, ${parseFloat(vehicle.longitude).toFixed(6)}`
             : 'Waiting for first GPS update';
-        const clickAction = hasLocation ? ` onclick="centerOnVehicle(${vehicle.vehicle_id})"` : '';
+        const vehicleId = Number.parseInt(vehicle.vehicle_id, 10) || 0;
+        const vehicleName = escapeHtml(vehicle.vehicle_name || 'Vehicle');
+        const plate = escapeHtml(vehicle.license_plate || 'N/A');
+        const driverName = escapeHtml(vehicle.driver_name || 'No driver');
+        const model = escapeHtml(vehicle.vehicle_model || vehicle.vehicle_type || 'No model');
+        const status = escapeHtml(vehicle.status || 'N/A');
+        const clickAction = hasLocation && vehicleId > 0 ? ` onclick="centerOnVehicle(${vehicleId})"` : '';
         const cursor = hasLocation ? 'pointer' : 'default';
         html += `
         <div class="vehicle-item" style="padding: 12px; border-bottom: 1px solid #eee; cursor: ${cursor};"${clickAction}>
-            <strong>${vehicle.vehicle_name}</strong> (${vehicle.license_plate})<br>
+            <strong>${vehicleName}</strong> (${plate})<br>
             <small>
-                <span style="color: #666;">${vehicle.driver_name || 'No driver'}</span> &bull;
-                ${vehicle.vehicle_model || vehicle.vehicle_type || 'No model'} &bull;
-                <span style="color: ${statusColor}">${vehicle.status}</span> &bull;
-                ${gpsLabel}
+                <span style="color: #666;">${driverName}</span> &bull;
+                ${model} &bull;
+                <span style="color: ${statusColor}">${status}</span> &bull;
+                ${escapeHtml(gpsLabel)}
             </small><br>
-            <small style="color: #888; font-size: 11px;">${coordinates}</small>
+            <small style="color: #888; font-size: 11px;">${escapeHtml(coordinates)}</small>
         </div>`;
     });
     document.getElementById('vehicle-list').innerHTML = html;

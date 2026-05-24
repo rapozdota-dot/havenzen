@@ -58,12 +58,12 @@ function hz_license_plate_exists($conn, string $licensePlate, ?int $excludeVehic
     .table-container th:nth-child(3), .table-container td:nth-child(3) { width: 110px; }
     /* Vehicle Type */
     .table-container th:nth-child(4), .table-container td:nth-child(4) { width: 90px; }
-    /* Seat Capacity */
-    .table-container th:nth-child(5), .table-container td:nth-child(5) { width: 90px; }
-    /* Assigned Route - Constrain width */
-    .table-container th:nth-child(6), .table-container td:nth-child(6) { width: 20%; }
+    /* Model */
+    .table-container th:nth-child(5), .table-container td:nth-child(5) { width: 18%; }
+    /* Seats */
+    .table-container th:nth-child(6), .table-container td:nth-child(6) { width: 80px; }
     /* Assigned Driver */
-    .table-container th:nth-child(7), .table-container td:nth-child(7) { width: 15%; }
+    .table-container th:nth-child(7), .table-container td:nth-child(7) { width: 16%; }
     /* Status */
     .table-container th:nth-child(8), .table-container td:nth-child(8) { width: 90px; }
     /* Actions */
@@ -425,6 +425,15 @@ if (isset($_GET['edit'])) {
         };
         openEditModal(vehicle);
     }
+
+    function editVehicleFromButton(button) {
+        try {
+            const vehicle = JSON.parse(button.dataset.vehicle || '{}');
+            openEditModal(vehicle);
+        } catch (error) {
+            console.error('Unable to open vehicle editor', error);
+        }
+    }
 </script>
 
 <!-- Delete Confirmation Modal -->
@@ -607,19 +616,22 @@ if (isset($_GET['edit'])) {
                             class="status-badge status-<?php echo $vehicle['status']; ?>"><?php echo ucfirst($vehicle['status']); ?></span>
                     </td>
                     <td>
-                        <button type="button" class="btn btn-secondary" onclick="editVehicle(
-                                <?php echo $vehicle['vehicle_id']; ?>,
-                                '<?php echo addslashes($vehicle['vehicle_name']); ?>',
-                                '<?php echo addslashes($vehicle['license_plate']); ?>',
-                                <?php echo $vehicle['driver_id'] ?: 'null'; ?>,
-                                '<?php echo $vehicle['status']; ?>',
-                                '<?php echo addslashes($vehicle['vehicle_type'] ?? ''); ?>',
-                                '<?php echo addslashes($vehicle['vehicle_color'] ?? ''); ?>',
-                                '<?php echo addslashes($vehicle['vehicle_model'] ?? ''); ?>',
-                                <?php echo intval($vehicle['seat_capacity'] ?? 0); ?>
-                            )">Edit</button>
+                        <?php
+                        $vehiclePayload = [
+                            'vehicle_id' => intval($vehicle['vehicle_id']),
+                            'vehicle_name' => $vehicle['vehicle_name'] ?? '',
+                            'license_plate' => $vehicle['license_plate'] ?? '',
+                            'driver_id' => $vehicle['driver_id'] ? intval($vehicle['driver_id']) : null,
+                            'status' => $vehicle['status'] ?? '',
+                            'vehicle_type' => $vehicle['vehicle_type'] ?? '',
+                            'vehicle_color' => $vehicle['vehicle_color'] ?? '',
+                            'vehicle_model' => $vehicle['vehicle_model'] ?? '',
+                            'seat_capacity' => intval($vehicle['seat_capacity'] ?? 0),
+                        ];
+                        ?>
+                        <button type="button" class="btn btn-secondary" data-vehicle="<?php echo htmlspecialchars(json_encode($vehiclePayload), ENT_QUOTES, 'UTF-8'); ?>" onclick="editVehicleFromButton(this)">Edit</button>
                         <button type="button" class="btn btn-danger"
-                            onclick="showDeleteConfirm('vehicles.php?action=delete&id=<?php echo $vehicle['vehicle_id']; ?>', '<?php echo addslashes($vehicle['vehicle_name']); ?>')">Delete</button>
+                            onclick="showDeleteConfirm('vehicles.php?action=delete&id=<?php echo $vehicle['vehicle_id']; ?>', <?php echo htmlspecialchars(json_encode($vehicle['vehicle_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>)">Delete</button>
                     </td>
                 </tr>
             <?php endwhile; ?>

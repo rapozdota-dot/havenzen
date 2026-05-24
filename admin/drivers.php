@@ -1,5 +1,6 @@
 <?php
 require_once 'auth.php';
+require_once '../lib/vehicle_helpers.php';
 $page_title = "Driver Management";
 require_once 'header.php';
 
@@ -245,6 +246,9 @@ $pendingDrivers = $conn->query("
                     d.created_at,
                     v.vehicle_id,
                     v.vehicle_name,
+                    v.license_plate,
+                    v.vehicle_model,
+                    v.vehicle_type,
                     (
                         SELECT COUNT(*)
                         FROM vehicle_trips vt
@@ -289,7 +293,14 @@ $pendingDrivers = $conn->query("
                         <span style="color:#777;">Not uploaded</span>
                     <?php endif; ?>
                 </td>
-                <td><?php echo $driver['vehicle_name'] ? htmlspecialchars($driver['vehicle_name']) : 'Not Assigned'; ?></td>
+                <td>
+                    <?php if (!empty($driver['vehicle_name'])): ?>
+                        <strong><?php echo htmlspecialchars($driver['vehicle_name']); ?></strong><br>
+                        <small><?php echo htmlspecialchars(hz_vehicle_detail_line($driver)); ?></small>
+                    <?php else: ?>
+                        Not Assigned
+                    <?php endif; ?>
+                </td>
                 <td><?php echo intval($driver['trips_today'] ?? 0); ?></td>
                 <td><?php echo intval($driver['trips_month'] ?? 0); ?></td>
                 <td><?php echo date('M j, Y', strtotime($driver['created_at'])); ?></td>

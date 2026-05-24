@@ -1,5 +1,6 @@
 <?php
 require_once 'auth.php';
+require_once '../lib/vehicle_helpers.php';
 
 $page_title = 'Routes Management';
 
@@ -177,7 +178,7 @@ if ($routeResult) {
 
         $routeId = intval($row['route_id']);
         $assignmentResult = $conn->query("
-            SELECT v.vehicle_id, v.vehicle_name, v.license_plate, v.driver_id, d.full_name AS driver_name
+            SELECT v.vehicle_id, v.vehicle_name, v.license_plate, v.vehicle_model, v.vehicle_type, v.driver_id, d.full_name AS driver_name
             FROM vehicles v
             LEFT JOIN drivers d ON d.user_id = v.driver_id
             WHERE v.route_id = {$routeId}
@@ -190,7 +191,7 @@ if ($routeResult) {
                     $row['assignment_vehicle_id'] = intval($assignment['vehicle_id']);
                     $row['assignment_driver_id'] = $assignment['driver_id'] ? intval($assignment['driver_id']) : '';
                 }
-                $vehicleLabel = trim(($assignment['vehicle_name'] ?? '') . ' (' . ($assignment['license_plate'] ?? 'No plate') . ')');
+                $vehicleLabel = hz_vehicle_display_label($assignment);
                 $driverLabel = $assignment['driver_name'] ? ' - ' . $assignment['driver_name'] : ' - no driver';
                 $assignmentParts[] = htmlspecialchars($vehicleLabel . $driverLabel);
             }
@@ -217,7 +218,7 @@ if ($driversResult) {
 
 $vehicles_list = [];
 $vehiclesResult = $conn->query("
-    SELECT v.vehicle_id, v.vehicle_name, v.license_plate, v.driver_id, d.full_name AS driver_name
+    SELECT v.vehicle_id, v.vehicle_name, v.license_plate, v.vehicle_model, v.vehicle_type, v.driver_id, d.full_name AS driver_name
     FROM vehicles v
     LEFT JOIN drivers d ON d.user_id = v.driver_id
     ORDER BY v.vehicle_name ASC
@@ -284,11 +285,7 @@ require_once 'header.php';
                     <?php foreach ($vehicles_list as $vehicle): ?>
                         <option value="<?php echo intval($vehicle['vehicle_id']); ?>">
                             <?php
-                            $vehicleLabel = $vehicle['vehicle_name'] . ' (' . $vehicle['license_plate'] . ')';
-                            if (!empty($vehicle['driver_name'])) {
-                                $vehicleLabel .= ' - ' . $vehicle['driver_name'];
-                            }
-                            echo htmlspecialchars($vehicleLabel);
+                            echo htmlspecialchars(hz_vehicle_display_label($vehicle, false, true));
                             ?>
                         </option>
                     <?php endforeach; ?>
@@ -361,11 +358,7 @@ require_once 'header.php';
                     <?php foreach ($vehicles_list as $vehicle): ?>
                         <option value="<?php echo intval($vehicle['vehicle_id']); ?>">
                             <?php
-                            $vehicleLabel = $vehicle['vehicle_name'] . ' (' . $vehicle['license_plate'] . ')';
-                            if (!empty($vehicle['driver_name'])) {
-                                $vehicleLabel .= ' - ' . $vehicle['driver_name'];
-                            }
-                            echo htmlspecialchars($vehicleLabel);
+                            echo htmlspecialchars(hz_vehicle_display_label($vehicle, false, true));
                             ?>
                         </option>
                     <?php endforeach; ?>

@@ -88,6 +88,7 @@ create table vehicles (
   license_plate varchar(15) not null unique,
   vehicle_type varchar(50),
   vehicle_color varchar(50),
+  vehicle_model varchar(100),
   seat_capacity integer not null default 0,
   driver_id integer references users(user_id) on delete set null,
   route_id integer references routes(route_id) on delete set null,

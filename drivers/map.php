@@ -18,7 +18,7 @@ $vehicle_status = !empty($driver_row['is_online']) ? 'online' : 'offline';
 
 // Fetch vehicle status directly from the database
 // Also get assigned vehicle details (id, name, plate, status)
-$vehicle_info_q = $conn->query("SELECT vehicle_id, vehicle_name, license_plate, status FROM vehicles WHERE driver_id = $session_user_id LIMIT 1");
+$vehicle_info_q = $conn->query("SELECT vehicle_id, vehicle_name, license_plate, vehicle_model, vehicle_type, status FROM vehicles WHERE driver_id = $session_user_id LIMIT 1");
 if ($vehicle_info_q && $vehicle_info_q->num_rows > 0) {
     $vrow = $vehicle_info_q->fetch_assoc();
     $vehicle_db_status = $vrow['status'] ?? 'inactive';
@@ -565,6 +565,18 @@ function loadVehicleLocations(silent) {
         });
 }
 
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, function (char) {
+        return {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        }[char];
+    });
+}
+
 // Update vehicle map (copied from admin code, adapted for driver page)
 function updateVehicleMap(vehicles) {
     // Clear existing vehicle markers
@@ -591,6 +603,11 @@ function updateVehicleMap(vehicles) {
         const lng = parseFloat(vehicle.longitude);
         if (isNaN(lat) || isNaN(lng)) return;
 
+        const vehicleName = escapeHtml(vehicle.vehicle_name || 'Vehicle');
+        const driverName = escapeHtml(vehicle.driver_name || 'N/A');
+        const plate = escapeHtml(vehicle.license_plate || 'N/A');
+        const model = escapeHtml(vehicle.vehicle_model || vehicle.vehicle_type || 'N/A');
+        const status = escapeHtml(vehicle.status || 'N/A');
         const marker = new google.maps.Marker({
             position: { lat: lat, lng: lng },
             map: driverMap,
@@ -606,12 +623,12 @@ function updateVehicleMap(vehicles) {
         const infoWindow = new google.maps.InfoWindow({
             content: `
                 <div style="min-width:250px;padding:15px;">
-                    <h4 style="margin:0 0 10px 0;color:#333;">${vehicle.vehicle_name || ''}</h4>
-                    <p><strong>Driver:</strong> ${vehicle.driver_name || 'N/A'}</p>
-                    <p><strong>Plate:</strong> ${vehicle.license_plate || ''}</p>
-                    <p><strong>Model:</strong> ${vehicle.vehicle_model || vehicle.vehicle_type || 'N/A'}</p>
-                    <p><strong>Status:</strong> <span style="color:${vehicle.status === 'active' ? 'green' : 'orange'}">${vehicle.status || ''}</span></p>
-                    <p><strong>Last Update:</strong> ${vehicle.last_update || ''}s ago</p>
+                    <h4 style="margin:0 0 10px 0;color:#333;">${vehicleName}</h4>
+                    <p><strong>Driver:</strong> ${driverName}</p>
+                    <p><strong>Plate:</strong> ${plate}</p>
+                    <p><strong>Model:</strong> ${model}</p>
+                    <p><strong>Status:</strong> <span style="color:${vehicle.status === 'active' ? 'green' : 'orange'}">${status}</span></p>
+                    <p><strong>Last Update:</strong> ${escapeHtml(vehicle.last_update || '')}s ago</p>
                     <p><strong>Coordinates:</strong><br>${lat.toFixed(6)}, ${lng.toFixed(6)}</p>
                 </div>
             `
@@ -656,13 +673,21 @@ function updateVehicleList(vehicles) {
     let html = '';
     vehicles.forEach(function(vehicle){
         const statusColor = vehicle.status === 'active' ? 'green' : 'orange';
+        const vehicleId = Number.parseInt(vehicle.vehicle_id, 10) || 0;
+        const vehicleName = escapeHtml(vehicle.vehicle_name || 'Vehicle');
+        const plate = escapeHtml(vehicle.license_plate || 'N/A');
+        const vehicleModelLine = escapeHtml(vehicle.vehicle_model || vehicle.vehicle_type || 'No model');
+        const driverName = escapeHtml(vehicle.driver_name || 'No driver');
+        const status = escapeHtml(vehicle.status || 'N/A');
+        const lastUpdate = escapeHtml(vehicle.last_update || '0');
         html += `
-        <div class="vehicle-item" style="padding: 12px; border-bottom: 1px solid #eee; cursor: pointer;" onclick="centerOnVehicle(${vehicle.vehicle_id})">
-            <strong>${vehicle.vehicle_name}</strong> (${vehicle.license_plate})<br>
+        <div class="vehicle-item" style="padding: 12px; border-bottom: 1px solid #eee; cursor: pointer;" onclick="centerOnVehicle(${vehicleId})">
+            <strong>${vehicleName}</strong> (${plate})<br>
+            <small style="color: #666;">${vehicleModelLine}</small><br>
             <small>
-                <span style="color: #666;">${vehicle.driver_name || 'No driver'}</span> • 
-                <span style="color: ${statusColor}">${vehicle.status}</span> • 
-                ${vehicle.last_update}s ago
+                <span style="color: #666;">${driverName}</span> &bull;
+                <span style="color: ${statusColor}">${status}</span> &bull;
+                ${lastUpdate}s ago
             </small><br>
             <small style="color: #888; font-size: 11px;">${parseFloat(vehicle.latitude).toFixed(6)}, ${parseFloat(vehicle.longitude).toFixed(6)}</small>
         </div>`;

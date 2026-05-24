@@ -1,6 +1,7 @@
 <?php
 require_once 'auth.php';
 require_once '../lib/trip_helpers.php';
+require_once '../lib/vehicle_helpers.php';
 
 $page_title = 'Bookings Management';
 hz_expire_overdue_no_shows($conn);
@@ -187,6 +188,9 @@ $bookingsSql = "
         b.*,
         c.full_name,
         v.vehicle_name,
+        v.license_plate,
+        v.vehicle_model,
+        v.vehicle_type,
         vt.trip_status,
         vt.scheduled_departure_at AS trip_departure,
         vt.direction,
@@ -357,7 +361,14 @@ $activeFilters = array_values(array_filter([
                                 <strong>To:</strong> <?php echo htmlspecialchars($booking['dropoff_location']); ?>
                             </td>
                             <td data-label="Departure"><?php echo htmlspecialchars($departureLabel); ?></td>
-                            <td data-label="Vehicle"><?php echo $booking['vehicle_name'] ? htmlspecialchars($booking['vehicle_name']) : 'Not Assigned'; ?></td>
+                            <td data-label="Vehicle">
+                                <?php if (!empty($booking['vehicle_name'])): ?>
+                                    <strong><?php echo htmlspecialchars($booking['vehicle_name']); ?></strong><br>
+                                    <span style="color:#666; font-size:0.85rem;"><?php echo htmlspecialchars(hz_vehicle_detail_line($booking)); ?></span>
+                                <?php else: ?>
+                                    Not Assigned
+                                <?php endif; ?>
+                            </td>
                             <td data-label="Baggage">
                                 <?php
                                 $bookingBaggageCount = intval($booking['baggage_count'] ?? 0);
@@ -467,10 +478,10 @@ $activeFilters = array_values(array_filter([
                 <select id="edit_vehicle_id" name="vehicle_id">
                     <option value="">Select Vehicle</option>
                     <?php
-                    $vehicles = $conn->query("SELECT vehicle_id, vehicle_name FROM vehicles WHERE status = 'active' ORDER BY vehicle_name ASC");
+                    $vehicles = $conn->query("SELECT vehicle_id, vehicle_name, license_plate, vehicle_model, vehicle_type, seat_capacity FROM vehicles WHERE status = 'active' ORDER BY vehicle_name ASC");
                     while ($vehicle = $vehicles->fetch_assoc()):
                     ?>
-                        <option value="<?php echo intval($vehicle['vehicle_id']); ?>"><?php echo htmlspecialchars($vehicle['vehicle_name']); ?></option>
+                        <option value="<?php echo intval($vehicle['vehicle_id']); ?>"><?php echo htmlspecialchars(hz_vehicle_display_label($vehicle, true)); ?></option>
                     <?php endwhile; ?>
                 </select>
             </div>

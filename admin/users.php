@@ -1,5 +1,6 @@
 <?php
 require_once 'auth.php';
+require_once '../lib/vehicle_helpers.php';
 $page_title = "Users Management";
 require_once 'header.php';
 
@@ -482,9 +483,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['id'])
                             <select id="vehicle_assigned" name="vehicle_assigned">
                                 <option value="">To be assigned</option>
                                 <?php
-                                $vehicles = $conn->query("SELECT vehicle_id, vehicle_name, license_plate FROM vehicles WHERE status = 'active' AND (driver_id IS NULL OR driver_id = 0)");
+                                $vehicles = $conn->query("SELECT vehicle_id, vehicle_name, license_plate, vehicle_model, vehicle_type, seat_capacity FROM vehicles WHERE status = 'active' AND (driver_id IS NULL OR driver_id = 0)");
                                 while ($vehicle = $vehicles->fetch_assoc()) {
-                                    echo "<option value=\"{$vehicle['vehicle_id']}\">{$vehicle['vehicle_name']} ({$vehicle['license_plate']})</option>";
+                                    echo '<option value="' . intval($vehicle['vehicle_id']) . '">' . htmlspecialchars(hz_vehicle_display_label($vehicle, true)) . '</option>';
                                 }
                                 ?>
                             </select>
@@ -626,9 +627,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['id'])
                             <select id="edit_vehicle_assigned" name="vehicle_assigned">
                                 <option value="">Remove assignment</option>
                                 <?php
-                                $vehicles = $conn->query("SELECT vehicle_id, vehicle_name, license_plate FROM vehicles WHERE status = 'active'");
+                                $vehicles = $conn->query("SELECT vehicle_id, vehicle_name, license_plate, vehicle_model, vehicle_type, seat_capacity FROM vehicles WHERE status = 'active'");
                                 while ($vehicle = $vehicles->fetch_assoc()) {
-                                    echo "<option value=\"{$vehicle['vehicle_id']}\">{$vehicle['vehicle_name']} ({$vehicle['license_plate']})</option>";
+                                    echo '<option value="' . intval($vehicle['vehicle_id']) . '">' . htmlspecialchars(hz_vehicle_display_label($vehicle, true)) . '</option>';
                                 }
                                 ?>
                             </select>

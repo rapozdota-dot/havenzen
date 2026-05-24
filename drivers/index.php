@@ -1,5 +1,6 @@
 <?php
 require_once 'auth.php';
+require_once '../lib/vehicle_helpers.php';
 require_once 'header.php';
 
 // Set timezone to match your location
@@ -79,6 +80,7 @@ if (isset($driver_data['vehicle_id']) && !empty($driver_data['vehicle_id'])) {
                 'vehicle_id' => 0,
                 'vehicle_name' => 'No Vehicle Assigned',
                 'license_plate' => 'N/A',
+                'vehicle_model' => 'N/A',
                 'vehicle_type' => 'N/A',
                 'vehicle_color' => 'N/A',
                 'route_name' => 'N/A',
@@ -105,6 +107,7 @@ if (isset($driver_data['vehicle_id']) && !empty($driver_data['vehicle_id'])) {
             'vehicle_id' => 0,
             'vehicle_name' => 'No Vehicle Assigned',
             'license_plate' => 'N/A',
+            'vehicle_model' => 'N/A',
             'vehicle_type' => 'N/A',
             'vehicle_color' => 'N/A',
             'route_name' => 'N/A',
@@ -350,6 +353,9 @@ if ($vehicle_id_for_stats > 0) {
             <span class="vehicle-title">
                 <?php echo htmlspecialchars($vehicle_info['vehicle_name'] ?? 'No Vehicle Assigned'); ?>
             </span>
+            <?php if (hz_vehicle_model_text($vehicle_info) !== '' && hz_vehicle_model_text($vehicle_info) !== 'N/A'): ?>
+                <span class="vehicle-subtitle"><?php echo htmlspecialchars(hz_vehicle_model_text($vehicle_info)); ?></span>
+            <?php endif; ?>
             <?php if (($vehicle_info['status'] ?? 'inactive') === 'inactive'): ?>
                 <span class="vehicle-substatus">Inactive</span>
             <?php endif; ?>
@@ -376,6 +382,12 @@ if ($vehicle_id_for_stats > 0) {
             <div class="vehicle-detail">
                 <span class="detail-label">Assigned Route</span>
                 <span class="detail-value" style="color: #2e7d32;"><?php echo htmlspecialchars($vehicle_info['route_name']); ?></span>
+            </div>
+            <?php endif; ?>
+            <?php if (hz_vehicle_model_text($vehicle_info) !== '' && hz_vehicle_model_text($vehicle_info) !== 'N/A'): ?>
+            <div class="vehicle-detail">
+                <span class="detail-label">Model</span>
+                <span class="detail-value"><?php echo htmlspecialchars(hz_vehicle_model_text($vehicle_info)); ?></span>
             </div>
             <?php endif; ?>
             <?php if (!empty($vehicle_info['vehicle_type']) && $vehicle_info['vehicle_type'] !== 'N/A'): ?>
@@ -408,10 +420,10 @@ if ($vehicle_id_for_stats > 0) {
                 <span class="detail-value"><?php echo htmlspecialchars($vehicle_info['model_year']); ?></span>
             </div>
             <?php endif; ?>
-            <?php if (!empty($vehicle_info['capacity'])): ?>
+            <?php if (!empty($vehicle_info['seat_capacity'])): ?>
             <div class="vehicle-detail">
                 <span class="detail-label">Capacity</span>
-                <span class="detail-value"><?php echo htmlspecialchars($vehicle_info['capacity']); ?> seats</span>
+                <span class="detail-value"><?php echo htmlspecialchars($vehicle_info['seat_capacity']); ?> seats</span>
             </div>
             <?php endif; ?>
         </div>
@@ -452,7 +464,8 @@ if ($vehicle_id_for_stats > 0) {
     display: flex;
     flex-direction: column;
 }
-.vehicle-substatus {
+.vehicle-substatus,
+.vehicle-subtitle {
     font-size: 0.85rem;
     color: #888;
     margin-top: 4px;

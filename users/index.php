@@ -1,5 +1,6 @@
 <?php
 require_once 'auth.php';
+require_once '../lib/vehicle_helpers.php';
 require_once 'header.php';
 
 $google_maps_script_url = google_maps_script_url('initMap', ['geometry']);
@@ -134,6 +135,7 @@ $google_maps_script_url = google_maps_script_url('initMap', ['geometry']);
                         <i class="fas fa-bus" style="color: #2196F3;"></i>
                         <?php echo htmlspecialchars($vehicle['vehicle_name']); ?>
                     </strong>
+                    <small><?php echo htmlspecialchars(hz_vehicle_model_text($vehicle) ?: 'No model'); ?></small>
                 </td>
                 <td data-label="Driver"><?php echo $vehicle['driver_name'] ? htmlspecialchars($vehicle['driver_name']) : 'Not Assigned'; ?></td>
                 <td data-label="License Plate"><?php echo htmlspecialchars($vehicle['license_plate']); ?></td>
@@ -272,6 +274,18 @@ function loadVehicleLocations(silent = false) {
         });
 }
 
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, function (char) {
+        return {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        }[char];
+    });
+}
+
 function updateVehicleMap(vehicles) {
     if (vehicles.length === 0) {
         document.getElementById('vehicle-list').innerHTML = '<div class="text-center text-muted py-3">No active vehicles found</div>';
@@ -295,17 +309,23 @@ function updateVehicleMap(vehicles) {
         seenVehicleIds.add(vehicleId);
         const position = { lat: lat, lng: lng };
         const isLive = vehicle.last_update !== null && Number(vehicle.last_update) <= LIVE_LOCATION_SECONDS;
+        const vehicleName = escapeHtml(vehicle.vehicle_name || 'Vehicle');
+        const driverName = escapeHtml(vehicle.driver_name || 'N/A');
+        const plate = escapeHtml(vehicle.license_plate || 'N/A');
+        const model = escapeHtml(vehicle.vehicle_model || vehicle.vehicle_type || 'N/A');
+        const route = escapeHtml(vehicle.route_name || 'Unassigned');
+        const status = escapeHtml(vehicle.status || 'N/A');
         const iconUrl = isLive
             ? 'https://maps.gstatic.com/mapfiles/ms2/micons/bus.png'
             : 'https://maps.google.com/mapfiles/ms/icons/yellow-dot.png';
         const infoHtml = `
                 <div style="min-width: 220px; padding: 10px;">
-                    <h4 style="margin: 0 0 8px 0; color: #333;">${vehicle.vehicle_name}</h4>
-                    <p style="margin: 0 0 4px 0;"><strong>Driver:</strong> ${vehicle.driver_name || 'N/A'}</p>
-                    <p style="margin: 0 0 4px 0;"><strong>Plate:</strong> ${vehicle.license_plate}</p>
-                    <p style="margin: 0 0 4px 0;"><strong>Model:</strong> ${vehicle.vehicle_model || vehicle.vehicle_type || 'N/A'}</p>
-                    <p style="margin: 0 0 4px 0;"><strong>Route:</strong> ${vehicle.route_name || 'Unassigned'}</p>
-                    <p style="margin: 0 0 4px 0;"><strong>Status:</strong> ${vehicle.status}</p>
+                    <h4 style="margin: 0 0 8px 0; color: #333;">${vehicleName}</h4>
+                    <p style="margin: 0 0 4px 0;"><strong>Driver:</strong> ${driverName}</p>
+                    <p style="margin: 0 0 4px 0;"><strong>Plate:</strong> ${plate}</p>
+                    <p style="margin: 0 0 4px 0;"><strong>Model:</strong> ${model}</p>
+                    <p style="margin: 0 0 4px 0;"><strong>Route:</strong> ${route}</p>
+                    <p style="margin: 0 0 4px 0;"><strong>Status:</strong> ${status}</p>
                     <p style="margin: 0;"><strong>GPS:</strong> ${isLive ? 'Live' : 'Last known'}${vehicle.last_update === null ? '' : ` (${vehicle.last_update}s ago)`}</p>
                 </div>
             `;
@@ -376,18 +396,23 @@ function updateVehicleList(vehicles) {
         const isLive = vehicle.last_update !== null && Number(vehicle.last_update) <= LIVE_LOCATION_SECONDS;
         const status = hasLocation ? `${isLive ? 'Live' : 'Last known'}${vehicle.last_update === null ? '' : `, ${vehicle.last_update}s ago`}` : 'No GPS yet';
         const statusColor = hasLocation ? (isLive ? '#28a745' : '#d97706') : '#ffc107';
-        const clickAction = hasLocation ? ` onclick="centerOnVehicle(${vehicle.vehicle_id})"` : '';
+        const vehicleId = Number.parseInt(vehicle.vehicle_id, 10) || 0;
+        const vehicleName = escapeHtml(vehicle.vehicle_name || 'Vehicle');
+        const plate = escapeHtml(vehicle.license_plate || 'N/A');
+        const model = escapeHtml(vehicle.vehicle_model || vehicle.vehicle_type || 'No model');
+        const driverName = escapeHtml(vehicle.driver_name || 'No driver');
+        const clickAction = hasLocation && vehicleId > 0 ? ` onclick="centerOnVehicle(${vehicleId})"` : '';
         const cursor = hasLocation ? 'pointer' : 'default';
         html += `
         <div class="vehicle-item" style="padding: 10px 12px; border-bottom: 1px solid #eee; cursor: ${cursor}; display: flex; justify-content: space-between; align-items: center;"${clickAction}>
             <div style="flex-grow: 1;">
                 <strong style="display: flex; align-items: center; gap: 8px;">
                     <i class="fas fa-bus" style="color: #2196F3;"></i>
-                    ${vehicle.vehicle_name}
+                    ${vehicleName}
                 </strong>
-                <small>${vehicle.license_plate} &bull; ${vehicle.vehicle_model || vehicle.vehicle_type || 'No model'} &bull; ${vehicle.driver_name || 'No driver'} &bull; <span style="color: ${statusColor};">${status}</span></small>
+                <small>${plate} &bull; ${model} &bull; ${driverName} &bull; <span style="color: ${statusColor};">${escapeHtml(status)}</span></small>
             </div>
-            <a href="booking.php?vehicle_id=${vehicle.vehicle_id}" class="btn btn-primary" onclick="event.stopPropagation();" style="font-size: 0.75rem; padding: 0.25rem 0.5rem; margin-left: 8px;">
+            <a href="booking.php?vehicle_id=${vehicleId}" class="btn btn-primary" onclick="event.stopPropagation();" style="font-size: 0.75rem; padding: 0.25rem 0.5rem; margin-left: 8px;">
                 Book
             </a>
         </div>`;

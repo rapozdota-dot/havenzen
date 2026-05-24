@@ -1,6 +1,7 @@
 <?php
 require_once 'auth.php';
 require_once '../lib/trip_helpers.php';
+require_once '../lib/vehicle_helpers.php';
 
 $selected_date = $_GET['date'] ?? date('Y-m-d');
 $selected_date = date('Y-m-d', strtotime($selected_date));
@@ -208,7 +209,10 @@ if ($vehicle_id > 0) {
         SELECT
             vt.*,
             r.route_name,
-            v.vehicle_name
+            v.vehicle_name,
+            v.license_plate,
+            v.vehicle_model,
+            v.vehicle_type
         FROM vehicle_trips vt
         JOIN routes r ON r.route_id = vt.route_id
         JOIN vehicles v ON v.vehicle_id = vt.vehicle_id
@@ -385,7 +389,7 @@ require_once 'header.php';
     </div>
 
     <div class="section-header">
-        <h2><?php echo htmlspecialchars($driver_data['vehicle_name'] ?? 'Assigned Vehicle'); ?> Trips</h2>
+        <h2><?php echo htmlspecialchars(hz_vehicle_display_label($driver_data)); ?> Trips</h2>
         <div class="section-actions">
             <form method="GET" style="display:flex; gap:10px; align-items:center;">
                 <label for="date"><strong>Date</strong></label>
@@ -410,7 +414,7 @@ require_once 'header.php';
                     <div style="display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; flex-wrap:wrap;">
                         <div>
                             <h3 style="margin:0;"><?php echo htmlspecialchars($trip['route_name']); ?></h3>
-                            <small><?php echo date('M j, Y g:i A', strtotime($trip['scheduled_departure_at'])); ?> &bull; <?php echo ucfirst($trip['direction']); ?></small>
+                            <small><?php echo htmlspecialchars(hz_vehicle_detail_line($trip)); ?> &bull; <?php echo date('M j, Y g:i A', strtotime($trip['scheduled_departure_at'])); ?> &bull; <?php echo ucfirst($trip['direction']); ?></small>
                         </div>
                         <span class="status-badge status-<?php echo htmlspecialchars($trip['trip_status']); ?>">
                             <?php echo ucwords(str_replace('_', ' ', $trip['trip_status'])); ?>
