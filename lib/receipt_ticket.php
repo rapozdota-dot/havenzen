@@ -16,12 +16,14 @@ function hz_fetch_receipt_booking($conn, int $bookingId): ?array
             v.license_plate,
             v.vehicle_type,
             v.vehicle_color,
+            COALESCE(vt.seat_capacity_snapshot, v.seat_capacity) AS vehicle_capacity_snapshot,
             COALESCE(d.full_name, vehicle_driver.full_name) AS driver_name,
             COALESCE(d.phone_number, vehicle_driver.phone_number) AS driver_phone,
             COALESCE(route_primary.route_name, route_vehicle.route_name) AS route_name
         FROM bookings b
         JOIN customers c ON c.user_id = b.passenger_id
         LEFT JOIN vehicles v ON v.vehicle_id = b.vehicle_id
+        LEFT JOIN vehicle_trips vt ON vt.trip_id = b.trip_id
         LEFT JOIN drivers d ON d.user_id = b.driver_id
         LEFT JOIN drivers vehicle_driver ON vehicle_driver.user_id = v.driver_id
         LEFT JOIN routes route_primary ON route_primary.route_id = b.route_id
@@ -102,6 +104,22 @@ function hz_receipt_passenger_count(array $booking): int
     return max(1, intval($booking['passenger_count'] ?? 1));
 }
 
+function hz_receipt_seat_availability(array $booking): string
+{
+    $capacity = intval($booking['vehicle_capacity_snapshot'] ?? 0);
+    $seatsLeft = $booking['seats_left_at_booking'] ?? null;
+
+    if ($capacity <= 0) {
+        return ($seatsLeft !== null && $seatsLeft !== '') ? (string) intval($seatsLeft) : 'N/A';
+    }
+
+    if ($seatsLeft === null || $seatsLeft === '') {
+        return 'N/A/' . $capacity;
+    }
+
+    return intval($seatsLeft) . '/' . $capacity;
+}
+
 function hz_build_receipt_text(array $booking): string
 {
     $fareAmount = hz_receipt_total_amount($booking);
@@ -109,7 +127,7 @@ function hz_build_receipt_text(array $booking): string
     $baggageCount = hz_receipt_baggage_count($booking);
     $baggageFee = hz_receipt_baggage_fee($booking);
     $passengerCount = hz_receipt_passenger_count($booking);
-    $seatsLeftAtBooking = $booking['seats_left_at_booking'] ?? null;
+    $seatAvailability = hz_receipt_seat_availability($booking);
     $fareTierLabel = trim((string) ($booking['fare_tier_label'] ?? ''));
     $fareTierPercent = intval($booking['fare_tier_percent'] ?? 100);
     $statusLabel = ucwords(str_replace('_', ' ', (string) ($booking['status'] ?? '')));
@@ -141,8 +159,8 @@ function hz_build_receipt_text(array $booking): string
     $receiptLines[] = str_repeat('-', 28);
     $receiptLines = array_merge($receiptLines, hz_receipt_wrap('Passenger', (string) ($booking['passenger_name'] ?? '')));
     $receiptLines = array_merge($receiptLines, hz_receipt_wrap('Seats', (string) $passengerCount));
-    if ($seatsLeftAtBooking !== null && $seatsLeftAtBooking !== '') {
-        $receiptLines = array_merge($receiptLines, hz_receipt_wrap('Seats Left', (string) intval($seatsLeftAtBooking)));
+    if ($seatAvailability !== 'N/A') {
+        $receiptLines = array_merge($receiptLines, hz_receipt_wrap('Seat Availability', $seatAvailability));
     }
 
     if ($contactShort !== '') {
@@ -201,7 +219,7 @@ function hz_render_receipt_html(array $booking): string
     $baggageCount = hz_receipt_baggage_count($booking);
     $baggageFee = hz_receipt_baggage_fee($booking);
     $passengerCount = hz_receipt_passenger_count($booking);
-    $seatsLeftAtBooking = $booking['seats_left_at_booking'] ?? null;
+    $seatAvailability = hz_receipt_seat_availability($booking);
     $fareTierLabel = trim((string) ($booking['fare_tier_label'] ?? ''));
     $fareTierPercent = intval($booking['fare_tier_percent'] ?? 100);
     $statusLabel = ucwords(str_replace('_', ' ', (string) ($booking['status'] ?? '')));
@@ -211,7 +229,7 @@ function hz_render_receipt_html(array $booking): string
     $fields = [
         ['label' => 'Passenger', 'value' => (string) ($booking['passenger_name'] ?? 'N/A')],
         ['label' => 'Seats', 'value' => (string) $passengerCount],
-        ['label' => 'Seats Left At Booking', 'value' => ($seatsLeftAtBooking !== null && $seatsLeftAtBooking !== '') ? (string) intval($seatsLeftAtBooking) : 'N/A'],
+        ['label' => 'Seat Availability', 'value' => $seatAvailability],
         ['label' => 'Status', 'value' => $statusLabel],
         ['label' => 'Ticket', 'value' => $ticketCode],
         ['label' => 'Date', 'value' => $requestedAt],

@@ -185,6 +185,83 @@ $conn->close();
     <title>Register - Haven Zen</title>
     <link rel="stylesheet" href="loginsection.css">
     <style>
+        body.register-page {
+            align-items: flex-start;
+            min-height: 100vh;
+            background: #f3f6fb;
+        }
+
+        .register-page .container {
+            max-width: 1180px;
+            padding: 28px 20px;
+        }
+
+        .register-page .header-text {
+            margin-bottom: 18px;
+        }
+
+        .register-page .header-text h1 {
+            font-size: 1.8rem;
+            margin-bottom: 4px;
+        }
+
+        .register-page .header-text p {
+            font-size: 0.92rem;
+        }
+
+        .register-page .card-container {
+            max-width: 1040px;
+            align-items: stretch;
+            border-radius: 14px;
+        }
+
+        .register-page .form-section {
+            flex: 1 1 680px;
+            padding: 32px;
+        }
+
+        .register-page .illustration-section {
+            flex: 0 0 300px;
+            padding: 32px 28px;
+            background:
+                linear-gradient(155deg, rgba(17, 24, 39, 0.92), rgba(44, 62, 80, 0.86)),
+                linear-gradient(135deg, #e91e63, #0f766e);
+        }
+
+        .register-page .bus-animation {
+            width: 82px;
+            height: 82px;
+            border: 2px solid rgba(255, 255, 255, 0.36);
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            font-size: 1.5rem;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .register-page .illustration-text h3 {
+            font-size: 1.28rem;
+        }
+
+        .register-page .illustration-text p {
+            font-size: 0.9rem;
+        }
+
+        .register-page .form-section h2 {
+            margin-bottom: 24px;
+            font-size: 1.45rem;
+        }
+
+        .register-label {
+            display: block;
+            margin-bottom: 8px;
+            color: #111827;
+            font-weight: 700;
+            font-size: 0.88rem;
+        }
+
         .role-toggle {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -193,12 +270,54 @@ $conn->close();
         }
 
         .role-option {
+            position: relative;
             border: 1px solid rgba(233, 30, 99, 0.25);
             border-radius: 10px;
-            padding: 12px;
+            padding: 12px 14px;
             cursor: pointer;
             background: #fff;
             transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+        }
+
+        .role-option input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .role-option-content {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-height: 34px;
+        }
+
+        .role-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: inline-grid;
+            place-items: center;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            color: #475569;
+            font-size: 0.78rem;
+            font-weight: 800;
+        }
+
+        .role-title {
+            display: block;
+            color: #111827;
+            font-size: 0.92rem;
+            font-weight: 700;
+            line-height: 1.15;
+        }
+
+        .role-note {
+            display: block;
+            color: #64748b;
+            font-size: 0.75rem;
+            margin-top: 2px;
         }
 
         .role-option:has(input:checked) {
@@ -207,41 +326,149 @@ $conn->close();
             transform: translateY(-1px);
         }
 
-        .role-option input {
-            margin-right: 8px;
+        .role-option:has(input:checked) .role-icon {
+            background: #e91e63;
+            border-color: #e91e63;
+            color: #fff;
+        }
+
+        .register-field-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px 16px;
+        }
+
+        .field-span-2 {
+            grid-column: 1 / -1;
+        }
+
+        .register-page .form-group {
+            margin-bottom: 0;
+        }
+
+        .register-page .form-group input,
+        .register-page .form-group textarea {
+            min-height: 42px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        .register-page .form-group textarea {
+            width: 100%;
+            min-height: 84px;
+            resize: vertical;
+            border: 1px solid var(--medium-gray);
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .register-page .form-group input[type="file"] {
+            padding: 8px 10px;
+            background: #fff;
         }
 
         .driver-fields {
             display: none;
-            padding: 14px;
+            padding: 18px;
             border-radius: 12px;
             background: #f8fafc;
             border: 1px solid #e2e8f0;
-            margin: 12px 0 18px;
+            margin: 18px 0;
         }
 
         .driver-fields.is-visible {
             display: block;
         }
 
+        .driver-fields h3 {
+            margin: 0 0 14px;
+            color: #111827;
+            font-size: 1rem;
+        }
+
         .password-rules {
             display: grid;
-            gap: 6px;
-            margin-top: 8px;
-            font-size: 0.86rem;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+            margin-top: 10px;
+            font-size: 0.78rem;
         }
 
         .password-rule {
-            color: #b91c1c;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            min-height: 28px;
+            padding: 5px 8px;
+            border-radius: 999px;
+            border: 1px solid #fecaca;
+            background: #fff7f7;
+            color: #991b1b;
             font-weight: 600;
         }
 
+        .password-rule::before {
+            content: "";
+            width: 12px;
+            height: 12px;
+            flex: 0 0 12px;
+            border-radius: 50%;
+            border: 2px solid #ef4444;
+            background: #fff;
+        }
+
         .password-rule.is-valid {
+            border-color: #bbf7d0;
+            background: #f0fdf4;
             color: #15803d;
+        }
+
+        .password-rule.is-valid::before {
+            border-color: #16a34a;
+            background: #16a34a;
+            box-shadow: inset 0 0 0 3px #fff;
+        }
+
+        .register-actions {
+            margin-top: 18px;
+        }
+
+        .register-links {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px 16px;
+            margin-top: 16px;
+        }
+
+        .register-links .link-text {
+            margin-top: 0;
+        }
+
+        @media (max-width: 968px) {
+            .register-page .card-container {
+                max-width: 720px;
+            }
+
+            .register-page .illustration-section {
+                flex-basis: auto;
+            }
+        }
+
+        @media (max-width: 680px) {
+            .register-field-grid,
+            .password-rules,
+            .role-toggle {
+                grid-template-columns: 1fr;
+            }
+
+            .register-page .form-section {
+                padding: 24px 18px;
+            }
         }
     </style>
 </head>
-<body>
+<body class="register-page">
     <div class="container">
         <div class="header-text">
             <h1>Haven Zen Transportation</h1>
@@ -260,127 +487,147 @@ $conn->close();
 
                 <?php $selectedRole = $_POST['role'] ?? 'passenger'; ?>
                 <form action="register.php" method="POST" enctype="multipart/form-data" id="registerForm">
-                    <label style="display:block; margin-bottom:8px; font-weight:700;">Register As *</label>
+                    <label class="register-label">Register As *</label>
                     <div class="role-toggle">
                         <label class="role-option">
                             <input type="radio" name="role" value="passenger" <?php echo $selectedRole !== 'driver' ? 'checked' : ''; ?>>
-                            Passenger
+                            <span class="role-option-content">
+                                <span class="role-icon">P</span>
+                                <span>
+                                    <span class="role-title">Passenger</span>
+                                    <span class="role-note">Book after signup</span>
+                                </span>
+                            </span>
                         </label>
                         <label class="role-option">
                             <input type="radio" name="role" value="driver" <?php echo $selectedRole === 'driver' ? 'checked' : ''; ?>>
-                            Driver
+                            <span class="role-option-content">
+                                <span class="role-icon">D</span>
+                                <span>
+                                    <span class="role-title">Driver</span>
+                                    <span class="role-note">Needs approval</span>
+                                </span>
+                            </span>
                         </label>
                     </div>
 
-                    <div class="form-group">
-                        <label for="username">Username *</label>
-                        <input type="text" id="username" name="username" placeholder="Choose a unique username" required value="<?php echo htmlspecialchars($_POST['username'] ?? ''); ?>">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="password">Password *</label>
-                        <input type="password" id="password" name="password" placeholder="Create a strong password" required>
-                        <div class="password-rules" aria-live="polite">
-                            <span class="password-rule" data-rule="length">At least 6 characters</span>
-                            <span class="password-rule" data-rule="upper">1 uppercase letter</span>
-                            <span class="password-rule" data-rule="lower">1 lowercase letter</span>
-                            <span class="password-rule" data-rule="number">1 number</span>
-                            <span class="password-rule" data-rule="match">Passwords match</span>
+                    <div class="register-field-grid">
+                        <div class="form-group field-span-2">
+                            <label for="username">Username *</label>
+                            <input type="text" id="username" name="username" placeholder="Choose a unique username" required value="<?php echo htmlspecialchars($_POST['username'] ?? ''); ?>">
                         </div>
-                    </div>
 
-                    <div class="form-group">
-                        <label for="confirm_password">Type Password Again *</label>
-                        <input type="password" id="confirm_password" name="confirm_password" placeholder="Re-enter password" required>
-                    </div>
+                        <div class="form-group field-span-2">
+                            <label for="password">Password *</label>
+                            <input type="password" id="password" name="password" placeholder="Create a strong password" required>
+                            <div class="password-rules" aria-live="polite">
+                                <span class="password-rule" data-rule="length">6+ characters</span>
+                                <span class="password-rule" data-rule="upper">Uppercase letter</span>
+                                <span class="password-rule" data-rule="lower">Lowercase letter</span>
+                                <span class="password-rule" data-rule="number">Number</span>
+                                <span class="password-rule" data-rule="match">Passwords match</span>
+                            </div>
+                        </div>
 
-                    <div class="form-group">
-                        <label for="first_name">First Name *</label>
-                        <input type="text" id="first_name" name="first_name" placeholder="e.g. Juan" required value="<?php echo htmlspecialchars($_POST['first_name'] ?? ''); ?>">
-                    </div>
+                        <div class="form-group field-span-2">
+                            <label for="confirm_password">Type Password Again *</label>
+                            <input type="password" id="confirm_password" name="confirm_password" placeholder="Re-enter password" required>
+                        </div>
 
-                    <div class="form-group">
-                        <label for="last_name">Last Name *</label>
-                        <input type="text" id="last_name" name="last_name" placeholder="e.g. Dela Cruz" required value="<?php echo htmlspecialchars($_POST['last_name'] ?? ''); ?>">
-                    </div>
+                        <div class="form-group">
+                            <label for="first_name">First Name *</label>
+                            <input type="text" id="first_name" name="first_name" placeholder="e.g. Juan" required value="<?php echo htmlspecialchars($_POST['first_name'] ?? ''); ?>">
+                        </div>
 
-                    <div class="form-group">
-                        <label for="email">Email Address *</label>
-                        <input type="email" id="email" name="email" placeholder="name@example.com" required value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>">
-                    </div>
+                        <div class="form-group">
+                            <label for="last_name">Last Name *</label>
+                            <input type="text" id="last_name" name="last_name" placeholder="e.g. Dela Cruz" required value="<?php echo htmlspecialchars($_POST['last_name'] ?? ''); ?>">
+                        </div>
 
-                    <div class="form-group">
-                        <label for="phone_number">Phone Number *</label>
-                        <input type="tel" id="phone_number" name="phone_number"
-                               inputmode="numeric"
-                               pattern="^(\+63|0)9[0-9]{9}$"
-                               placeholder="e.g. 09171234567 or +639171234567"
-                               title="Philippine mobile e.g. 09171234567 or +639171234567"
-                               required
-                               value="<?php echo htmlspecialchars($_POST['phone_number'] ?? ''); ?>">
-                        <small style="color: #666; font-size: 0.85em;">Format: 09171234567 or +639171234567</small>
+                        <div class="form-group">
+                            <label for="email">Email Address *</label>
+                            <input type="email" id="email" name="email" placeholder="name@example.com" required value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="phone_number">Phone Number *</label>
+                            <input type="tel" id="phone_number" name="phone_number"
+                                   inputmode="numeric"
+                                   pattern="^(\+63|0)9[0-9]{9}$"
+                                   placeholder="09171234567"
+                                   title="Philippine mobile e.g. 09171234567 or +639171234567"
+                                   required
+                                   value="<?php echo htmlspecialchars($_POST['phone_number'] ?? ''); ?>">
+                            <small style="color: #666; font-size: 0.78em;">09171234567 or +639171234567</small>
+                        </div>
                     </div>
 
                     <div class="driver-fields" id="driverFields">
-                        <h3 style="margin:0 0 12px;">Driver Application Details</h3>
-                        <div class="form-group">
-                            <label for="license_number">License Number *</label>
-                            <input type="text" id="license_number" name="license_number" value="<?php echo htmlspecialchars($_POST['license_number'] ?? ''); ?>">
-                        </div>
-                        <div class="form-group">
-                            <label for="license_expiry">License Expiry *</label>
-                            <input type="date" id="license_expiry" name="license_expiry" value="<?php echo htmlspecialchars($_POST['license_expiry'] ?? ''); ?>">
-                        </div>
-                        <div class="form-group">
-                            <label for="license_class">License Class *</label>
-                            <input type="text" id="license_class" name="license_class" placeholder="Professional / Non-professional" value="<?php echo htmlspecialchars($_POST['license_class'] ?? ''); ?>">
-                        </div>
-                        <div class="form-group">
-                            <label for="years_experience">Years of Experience</label>
-                            <input type="number" id="years_experience" name="years_experience" min="0" value="<?php echo htmlspecialchars($_POST['years_experience'] ?? '0'); ?>">
-                        </div>
-                        <div class="form-group">
-                            <label for="emergency_contact">Emergency Contact</label>
-                            <input type="text" id="emergency_contact" name="emergency_contact" value="<?php echo htmlspecialchars($_POST['emergency_contact'] ?? ''); ?>">
-                        </div>
-                        <div class="form-group">
-                            <label for="emergency_phone">Emergency Phone</label>
-                            <input type="tel" id="emergency_phone" name="emergency_phone" value="<?php echo htmlspecialchars($_POST['emergency_phone'] ?? ''); ?>">
-                        </div>
-                        <div class="form-group">
-                            <label for="address">Address *</label>
-                            <textarea id="address" name="address" rows="3"><?php echo htmlspecialchars($_POST['address'] ?? ''); ?></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label for="profile_picture">Profile Picture</label>
-                            <input type="file" id="profile_picture" name="profile_picture" accept="image/*">
-                        </div>
-                        <div class="form-group">
-                            <label for="license_front_image">Driver License Image - Front *</label>
-                            <input type="file" id="license_front_image" name="license_front_image" accept="image/*">
-                        </div>
-                        <div class="form-group">
-                            <label for="license_back_image">Driver License Image - Back *</label>
-                            <input type="file" id="license_back_image" name="license_back_image" accept="image/*">
+                        <h3>Driver Application Details</h3>
+                        <div class="register-field-grid">
+                            <div class="form-group">
+                                <label for="license_number">License Number *</label>
+                                <input type="text" id="license_number" name="license_number" value="<?php echo htmlspecialchars($_POST['license_number'] ?? ''); ?>">
+                            </div>
+                            <div class="form-group">
+                                <label for="license_expiry">License Expiry *</label>
+                                <input type="date" id="license_expiry" name="license_expiry" value="<?php echo htmlspecialchars($_POST['license_expiry'] ?? ''); ?>">
+                            </div>
+                            <div class="form-group">
+                                <label for="license_class">License Class *</label>
+                                <input type="text" id="license_class" name="license_class" placeholder="Professional / Non-professional" value="<?php echo htmlspecialchars($_POST['license_class'] ?? ''); ?>">
+                            </div>
+                            <div class="form-group">
+                                <label for="years_experience">Years of Experience</label>
+                                <input type="number" id="years_experience" name="years_experience" min="0" value="<?php echo htmlspecialchars($_POST['years_experience'] ?? '0'); ?>">
+                            </div>
+                            <div class="form-group">
+                                <label for="emergency_contact">Emergency Contact</label>
+                                <input type="text" id="emergency_contact" name="emergency_contact" value="<?php echo htmlspecialchars($_POST['emergency_contact'] ?? ''); ?>">
+                            </div>
+                            <div class="form-group">
+                                <label for="emergency_phone">Emergency Phone</label>
+                                <input type="tel" id="emergency_phone" name="emergency_phone" value="<?php echo htmlspecialchars($_POST['emergency_phone'] ?? ''); ?>">
+                            </div>
+                            <div class="form-group field-span-2">
+                                <label for="address">Address *</label>
+                                <textarea id="address" name="address" rows="3"><?php echo htmlspecialchars($_POST['address'] ?? ''); ?></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="profile_picture">Profile Picture</label>
+                                <input type="file" id="profile_picture" name="profile_picture" accept="image/*">
+                            </div>
+                            <div class="form-group">
+                                <label for="license_front_image">License Front *</label>
+                                <input type="file" id="license_front_image" name="license_front_image" accept="image/*">
+                            </div>
+                            <div class="form-group field-span-2">
+                                <label for="license_back_image">License Back *</label>
+                                <input type="file" id="license_back_image" name="license_back_image" accept="image/*">
+                            </div>
                         </div>
                     </div>
 
-                    <button type="submit" class="submit-btn">Register</button>
+                    <div class="register-actions">
+                        <button type="submit" class="submit-btn">Register</button>
+                    </div>
                 </form>
 
-                <div class="link-text">
-                    Already have an account? <a href="login.php">Login here</a>
-                </div>
+                <div class="register-links">
+                    <div class="link-text">
+                        Already have an account? <a href="login.php">Login here</a>
+                    </div>
 
-                <div class="link-text">
-                    <a href="../index.php">Back to Home</a>
+                    <div class="link-text">
+                        <a href="../index.php">Back to Home</a>
+                    </div>
                 </div>
             </div>
 
             <div class="illustration-section">
-                <div class="bus-animation">Bus</div>
+                <div class="bus-animation">HZ</div>
                 <div class="illustration-text">
-                    <h3>Join Haven Zen Today!</h3>
+                    <h3>Join Haven Zen</h3>
                     <p>Passengers can book right away. Driver accounts are reviewed by the superadmin before access is granted.</p>
                 </div>
             </div>
