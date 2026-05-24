@@ -414,4 +414,62 @@ if (!function_exists('hz_store_uploaded_image')) {
         return $publicPath;
     }
 }
+
+if (!function_exists('hz_core_table_has_column')) {
+    function hz_core_table_has_column($connection, $table, $column)
+    {
+        $table = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $table);
+        $column = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $column);
+        if ($table === '' || $column === '') {
+            return false;
+        }
+
+        $result = $connection->query("SHOW COLUMNS FROM {$table} LIKE '{$column}'");
+        return $result && $result->num_rows > 0;
+    }
+}
+
+if (!function_exists('hz_add_column_if_missing')) {
+    function hz_add_column_if_missing($connection, $table, $column, $definition)
+    {
+        if (hz_core_table_has_column($connection, $table, $column)) {
+            return true;
+        }
+
+        return (bool) $connection->query("ALTER TABLE {$table} ADD COLUMN {$column} {$definition}");
+    }
+}
+
+if (!function_exists('hz_ensure_havenzen_feature_columns')) {
+    function hz_ensure_havenzen_feature_columns($connection)
+    {
+        static $checked = false;
+        if ($checked || !$connection) {
+            return true;
+        }
+
+        $columns = [
+            ['drivers', 'approval_status', "VARCHAR(20) NOT NULL DEFAULT 'approved'"],
+            ['drivers', 'approval_notes', 'TEXT'],
+            ['drivers', 'approved_at', 'TIMESTAMP NULL'],
+            ['drivers', 'approved_by', 'INT NULL'],
+            ['drivers', 'license_front_image', 'VARCHAR(255) DEFAULT NULL'],
+            ['drivers', 'license_back_image', 'VARCHAR(255) DEFAULT NULL'],
+            ['vehicles', 'vehicle_model', 'VARCHAR(100) DEFAULT NULL'],
+            ['bookings', 'seats_left_at_booking', 'INT NULL'],
+            ['bookings', 'fare_tier_percent', 'INT NOT NULL DEFAULT 100'],
+            ['bookings', 'fare_tier_label', "VARCHAR(50) NOT NULL DEFAULT 'Full route'"],
+        ];
+
+        foreach ($columns as $columnSpec) {
+            [$table, $column, $definition] = $columnSpec;
+            hz_add_column_if_missing($connection, $table, $column, $definition);
+        }
+
+        $checked = true;
+        return true;
+    }
+}
+
+hz_ensure_havenzen_feature_columns($conn);
 ?>

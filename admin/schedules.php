@@ -130,7 +130,7 @@ if ($vehicleResult) {
 }
 
 $drivers = [];
-$driverResult = $conn->query("SELECT user_id, full_name, phone_number FROM drivers ORDER BY full_name ASC");
+$driverResult = $conn->query("SELECT user_id, full_name, phone_number FROM drivers WHERE approval_status = 'approved' ORDER BY full_name ASC");
 if ($driverResult) {
     while ($row = $driverResult->fetch_assoc()) {
         $drivers[] = $row;
@@ -138,7 +138,7 @@ if ($driverResult) {
 }
 
 $routes = [];
-$routeResult = $conn->query("SELECT route_id, route_name, travel_minutes FROM routes ORDER BY route_name ASC");
+$routeResult = $conn->query("SELECT route_id, route_name, travel_minutes, stops FROM routes ORDER BY route_name ASC");
 if ($routeResult) {
     while ($row = $routeResult->fetch_assoc()) {
         $routes[] = $row;
@@ -154,7 +154,9 @@ $scheduleResult = $conn->query("
         d.full_name AS schedule_driver_name,
         d.phone_number AS schedule_driver_phone,
         r.route_name,
-        rr.route_name AS return_route_name
+        r.stops AS route_stops,
+        rr.route_name AS return_route_name,
+        rr.stops AS return_route_stops
     FROM vehicle_schedules vs
     JOIN vehicles v ON v.vehicle_id = vs.vehicle_id
     LEFT JOIN drivers d ON d.user_id = vs.driver_id
@@ -442,7 +444,20 @@ require_once 'header.php';
                 <tr><td colspan="9">No schedules configured yet.</td></tr>
             <?php endif; ?>
             <?php foreach ($schedules as $schedule): ?>
-                <?php $activeDays = hz_decode_active_days($schedule['active_days']); ?>
+                <?php
+                $activeDays = hz_decode_active_days($schedule['active_days']);
+                $outboundPlace = hz_route_endpoints([
+                    'route_name' => $schedule['route_name'] ?? '',
+                    'stops' => $schedule['route_stops'] ?? '[]',
+                ])['origin'];
+                $returnPlace = '';
+                if (!empty($schedule['return_route_name'])) {
+                    $returnPlace = hz_route_endpoints([
+                        'route_name' => $schedule['return_route_name'] ?? '',
+                        'stops' => $schedule['return_route_stops'] ?? '[]',
+                    ])['origin'];
+                }
+                ?>
                 <tr>
                     <td>
                         <strong><?php echo htmlspecialchars($schedule['vehicle_name']); ?></strong><br>
@@ -458,8 +473,8 @@ require_once 'header.php';
                             <span class="schedule-driver-muted">Vehicle default</span>
                         <?php endif; ?>
                     </td>
-                    <td><?php echo htmlspecialchars($schedule['route_name']); ?></td>
-                    <td><?php echo $schedule['return_route_name'] ? htmlspecialchars($schedule['return_route_name']) : '<em>None</em>'; ?></td>
+                    <td><?php echo htmlspecialchars($outboundPlace); ?></td>
+                    <td><?php echo $returnPlace !== '' ? htmlspecialchars($returnPlace) : '<em>None</em>'; ?></td>
                     <td><?php echo date('g:i A', strtotime($schedule['departure_time'])); ?></td>
                     <td><?php echo htmlspecialchars(implode(', ', array_map('ucfirst', $activeDays))); ?></td>
                     <td><?php echo intval($schedule['layover_minutes']); ?> mins</td>

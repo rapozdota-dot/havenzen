@@ -109,6 +109,9 @@ function hz_build_receipt_text(array $booking): string
     $baggageCount = hz_receipt_baggage_count($booking);
     $baggageFee = hz_receipt_baggage_fee($booking);
     $passengerCount = hz_receipt_passenger_count($booking);
+    $seatsLeftAtBooking = $booking['seats_left_at_booking'] ?? null;
+    $fareTierLabel = trim((string) ($booking['fare_tier_label'] ?? ''));
+    $fareTierPercent = intval($booking['fare_tier_percent'] ?? 100);
     $statusLabel = ucwords(str_replace('_', ' ', (string) ($booking['status'] ?? '')));
     $ticketCode = 'BK-' . str_pad((string) intval($booking['booking_id'] ?? 0), 6, '0', STR_PAD_LEFT);
     $requestedAt = !empty($booking['requested_time']) ? date('m/d/y h:i A', strtotime((string) $booking['requested_time'])) : date('m/d/y h:i A');
@@ -138,6 +141,9 @@ function hz_build_receipt_text(array $booking): string
     $receiptLines[] = str_repeat('-', 28);
     $receiptLines = array_merge($receiptLines, hz_receipt_wrap('Passenger', (string) ($booking['passenger_name'] ?? '')));
     $receiptLines = array_merge($receiptLines, hz_receipt_wrap('Seats', (string) $passengerCount));
+    if ($seatsLeftAtBooking !== null && $seatsLeftAtBooking !== '') {
+        $receiptLines = array_merge($receiptLines, hz_receipt_wrap('Seats Left', (string) intval($seatsLeftAtBooking)));
+    }
 
     if ($contactShort !== '') {
         $receiptLines = array_merge($receiptLines, hz_receipt_wrap('Contact', $contactShort));
@@ -160,6 +166,9 @@ function hz_build_receipt_text(array $booking): string
 
     $receiptLines[] = str_repeat('-', 28);
     $receiptLines = array_merge($receiptLines, hz_receipt_center('PAYMENT DETAILS'));
+    if ($fareTierLabel !== '') {
+        $receiptLines = array_merge($receiptLines, hz_receipt_wrap('Fare Option', $fareTierLabel . ' (' . $fareTierPercent . '%)'));
+    }
     $receiptLines = array_merge($receiptLines, hz_receipt_wrap('Ticket Fare', 'PHP ' . number_format($travelFare, 2)));
     if (defined('BAGGAGE_FEE_PER_BAG')) {
         $receiptLines = array_merge($receiptLines, hz_receipt_wrap('Baggage Count', (string) $baggageCount));
@@ -192,6 +201,9 @@ function hz_render_receipt_html(array $booking): string
     $baggageCount = hz_receipt_baggage_count($booking);
     $baggageFee = hz_receipt_baggage_fee($booking);
     $passengerCount = hz_receipt_passenger_count($booking);
+    $seatsLeftAtBooking = $booking['seats_left_at_booking'] ?? null;
+    $fareTierLabel = trim((string) ($booking['fare_tier_label'] ?? ''));
+    $fareTierPercent = intval($booking['fare_tier_percent'] ?? 100);
     $statusLabel = ucwords(str_replace('_', ' ', (string) ($booking['status'] ?? '')));
     $ticketCode = 'BK-' . str_pad((string) intval($booking['booking_id'] ?? 0), 6, '0', STR_PAD_LEFT);
     $requestedAt = !empty($booking['requested_time']) ? date('M j, Y g:i A', strtotime((string) $booking['requested_time'])) : date('M j, Y g:i A');
@@ -199,6 +211,7 @@ function hz_render_receipt_html(array $booking): string
     $fields = [
         ['label' => 'Passenger', 'value' => (string) ($booking['passenger_name'] ?? 'N/A')],
         ['label' => 'Seats', 'value' => (string) $passengerCount],
+        ['label' => 'Seats Left At Booking', 'value' => ($seatsLeftAtBooking !== null && $seatsLeftAtBooking !== '') ? (string) intval($seatsLeftAtBooking) : 'N/A'],
         ['label' => 'Status', 'value' => $statusLabel],
         ['label' => 'Ticket', 'value' => $ticketCode],
         ['label' => 'Date', 'value' => $requestedAt],
@@ -210,6 +223,7 @@ function hz_render_receipt_html(array $booking): string
         ['label' => 'Driver Phone', 'value' => preg_replace('/\s+/', '', (string) ($booking['driver_phone'] ?? '')) ?: 'N/A'],
         ['label' => 'Vehicle', 'value' => hz_receipt_clean_text((string) (($booking['vehicle_name'] ?? '') ?: 'Not assigned'))],
         ['label' => 'Plate', 'value' => (string) ($booking['license_plate'] ?? 'N/A')],
+        ['label' => 'Fare Option', 'value' => $fareTierLabel !== '' ? $fareTierLabel . ' (' . $fareTierPercent . '%)' : 'Full route (100%)'],
         ['label' => 'Ticket Fare', 'value' => 'PHP ' . number_format($travelFare, 2)],
         ['label' => 'Baggage Count', 'value' => $baggageCount . ' bag(s)'],
         ['label' => 'Baggage Rate', 'value' => defined('BAGGAGE_FEE_PER_BAG') ? 'PHP ' . number_format((float) BAGGAGE_FEE_PER_BAG, 2) . '/bag' : 'N/A'],

@@ -7,6 +7,17 @@ $selected_date = date('Y-m-d', strtotime($selected_date));
 $selected_route_id = intval($_GET['route_id'] ?? 0);
 $selected_vehicle_id = intval($_GET['vehicle_id'] ?? 0);
 
+$fareTierOptions = [
+    60 => 'Short stop - 60% fare',
+    80 => 'Mid route - 80% fare',
+    100 => 'Full route - 100% fare',
+];
+
+function hz_booking_fare_tier_label(int $percent, array $options): string
+{
+    return $options[$percent] ?? $options[100];
+}
+
 hz_generate_trips_for_date($conn, $selected_date);
 hz_expire_overdue_no_shows($conn);
 
@@ -16,6 +27,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'book_trip') {
         $trip_id = intval($_POST['trip_id'] ?? 0);
         $baggage_count = max(0, intval($_POST['baggage_count'] ?? 0));
+        $fare_tier_percent = intval($_POST['fare_tier_percent'] ?? 100);
+        if (!array_key_exists($fare_tier_percent, $fareTierOptions)) {
+            $fare_tier_percent = 100;
+        }
+        $fare_tier_label = $conn->real_escape_string(hz_booking_fare_tier_label($fare_tier_percent, $fareTierOptions));
         $notes = $conn->real_escape_string(trim($_POST['notes'] ?? ''));
 
         hz_expire_overdue_no_shows($conn, $trip_id);
@@ -45,8 +61,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $trip = $tripQuery->fetch_assoc();
             $availableSeats = hz_get_trip_available_seats($conn, $trip_id);
+            $alreadyBookedQuery = $conn->query("
+                SELECT booking_id
+                FROM bookings
+                WHERE trip_id = {$trip_id}
+                  AND passenger_id = {$user_id}
+                  AND status NOT IN ('cancelled', 'denied', 'completed')
+                  AND boarding_status NOT IN ('no_show', 'dropped_off')
+                LIMIT 1
+            ");
             if ($availableSeats <= 0) {
                 $error_message = 'That trip is already full. Please choose another departure.';
+            } elseif (strtotime($trip['scheduled_departure_at']) <= time()) {
+                $error_message = 'Booking is already closed because the departure time has been reached.';
+            } elseif ($alreadyBookedQuery && $alreadyBookedQuery->num_rows > 0) {
+                $error_message = 'You already reserved a seat for this trip.';
             } elseif ($trip['trip_status'] !== 'scheduled') {
                 $error_message = 'That trip is no longer open for booking.';
             } else {
@@ -58,8 +87,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $vehicle_id = intval($trip['vehicle_id']);
                 $driver_id = !empty($trip['driver_id']) ? intval($trip['driver_id']) : 'NULL';
                 $base_fare = floatval($trip['fare'] ?? 0);
+                $travel_fare = round($base_fare * ($fare_tier_percent / 100), 2);
                 $baggage_fee = $baggage_count * BAGGAGE_FEE_PER_BAG;
-                $fare = $base_fare + $baggage_fee;
+                $fare = $travel_fare + $baggage_fee;
+                $seats_left_at_booking = max(0, $availableSeats - 1);
 
                 $sql = "
                     INSERT INTO bookings (
@@ -78,6 +109,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         notes,
                         fare,
                         fare_estimate,
+                        seats_left_at_booking,
+                        fare_tier_percent,
+                        fare_tier_label,
                         driver_id
                     ) VALUES (
                         {$user_id},
@@ -95,14 +129,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         '{$notes}',
                         {$fare},
                         {$fare},
+                        {$seats_left_at_booking},
+                        {$fare_tier_percent},
+                        '{$fare_tier_label}',
                         {$driver_id}
                     )
                 ";
 
                 if ($conn->query($sql)) {
                     $booking_id = $conn->insert_id;
-                    $success_message = 'Seat reserved successfully for ' . date('M j, Y g:i A', strtotime($trip['scheduled_departure_at'])) . ' on ' . $trip['vehicle_name'] . '. Total bill: PHP ' . number_format($fare, 2) . '.';
-                    logCRUD($conn, $user_id, 'CREATE', 'bookings', $booking_id, 'Booked scheduled trip #' . $trip_id . '; Baggage: ' . $baggage_count . '; Total bill: PHP ' . number_format($fare, 2));
+                    $success_message = 'Seat reserved successfully for ' . date('M j, Y g:i A', strtotime($trip['scheduled_departure_at'])) . ' on ' . $trip['vehicle_name'] . '. Total bill: PHP ' . number_format($fare, 2) . '. Seats left after booking: ' . $seats_left_at_booking . '.';
+                    logCRUD($conn, $user_id, 'CREATE', 'bookings', $booking_id, 'Booked scheduled trip #' . $trip_id . '; Fare tier: ' . $fare_tier_percent . '%; Baggage: ' . $baggage_count . '; Seats left: ' . $seats_left_at_booking . '; Total bill: PHP ' . number_format($fare, 2));
 
                     if (!empty($trip['driver_id'])) {
                         hz_create_notification(
@@ -220,6 +257,21 @@ if ($selected_date === date('Y-m-d')) {
 
 $tripSql .= " ORDER BY vt.scheduled_departure_at ASC";
 
+$activeTripBookings = [];
+$activeTripBookingResult = $conn->query("
+    SELECT DISTINCT trip_id
+    FROM bookings
+    WHERE passenger_id = {$user_id}
+      AND trip_id IS NOT NULL
+      AND status NOT IN ('cancelled', 'denied', 'completed')
+      AND boarding_status NOT IN ('no_show', 'dropped_off')
+");
+if ($activeTripBookingResult) {
+    while ($row = $activeTripBookingResult->fetch_assoc()) {
+        $activeTripBookings[intval($row['trip_id'])] = true;
+    }
+}
+
 $availableTrips = [];
 $tripResult = $conn->query($tripSql);
 if ($tripResult) {
@@ -229,6 +281,7 @@ if ($tripResult) {
             $endpoints = hz_route_endpoints($row);
             $row['origin'] = $endpoints['origin'];
             $row['destination'] = $endpoints['destination'];
+            $row['already_reserved'] = isset($activeTripBookings[intval($row['trip_id'])]);
             $availableTrips[] = $row;
         }
     }
@@ -459,6 +512,10 @@ require_once 'header.php';
                     <span>Baggage Fee</span>
                     <strong>PHP <?php echo number_format((float) BAGGAGE_FEE_PER_BAG, 2); ?> / bag</strong>
                 </div>
+                <div>
+                    <span>Booking Cutoff</span>
+                    <strong title="Once the scheduled departure time is reached, this seat can no longer be reserved.">Closes at departure</strong>
+                </div>
             </div>
             <form method="POST"
                   onsubmit="return confirmTripBooking(this);"
@@ -468,9 +525,21 @@ require_once 'header.php';
                   data-driver="<?php echo htmlspecialchars(!empty($trip['driver_name']) ? $trip['driver_name'] : 'To be assigned by admin', ENT_QUOTES); ?>"
                   data-fare="<?php echo htmlspecialchars(number_format((float) $trip['fare'], 2, '.', ''), ENT_QUOTES); ?>"
                   data-baggage-fee="<?php echo intval(BAGGAGE_FEE_PER_BAG); ?>"
-                  data-seats="<?php echo intval($trip['metrics']['available']); ?> / <?php echo intval($trip['metrics']['capacity']); ?> seats left">
+                  data-seats="<?php echo intval($trip['metrics']['available']); ?> / <?php echo intval($trip['metrics']['capacity']); ?> seats left"
+                  data-seats-left-after="<?php echo max(0, intval($trip['metrics']['available']) - 1); ?>">
                 <input type="hidden" name="action" value="book_trip">
                 <input type="hidden" name="trip_id" value="<?php echo intval($trip['trip_id']); ?>">
+                <div class="form-group">
+                    <label for="fare_tier_percent_<?php echo intval($trip['trip_id']); ?>">Stop / Fare Option</label>
+                    <select id="fare_tier_percent_<?php echo intval($trip['trip_id']); ?>" name="fare_tier_percent">
+                        <?php foreach ($fareTierOptions as $percent => $label): ?>
+                            <option value="<?php echo intval($percent); ?>" <?php echo intval($percent) === 100 ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($label . ' - PHP ' . number_format(((float) $trip['fare']) * ($percent / 100), 2)); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <small title="Choose the fare tier that matches where you plan to stop along the route.">Shorter stops can use 60% or 80%; full route uses 100%.</small>
+                </div>
                 <div class="form-group">
                     <label for="baggage_count_<?php echo intval($trip['trip_id']); ?>">Baggage Count (PHP <?php echo number_format((float) BAGGAGE_FEE_PER_BAG, 2); ?> each)</label>
                     <input type="number" id="baggage_count_<?php echo intval($trip['trip_id']); ?>" name="baggage_count" min="0" value="0">
@@ -479,7 +548,11 @@ require_once 'header.php';
                     <label for="notes_<?php echo intval($trip['trip_id']); ?>">Notes</label>
                     <textarea id="notes_<?php echo intval($trip['trip_id']); ?>" name="notes" rows="3" placeholder="Optional rider note"></textarea>
                 </div>
-                <button type="submit" class="btn btn-primary" style="width:100%;">Reserve Seat</button>
+                <?php if (!empty($trip['already_reserved'])): ?>
+                    <button type="button" class="btn btn-secondary" style="width:100%; cursor:not-allowed;" disabled title="You already reserved a seat on this trip. Check My Recent Scheduled Bookings below.">Seat Already Reserved</button>
+                <?php else: ?>
+                    <button type="submit" class="btn btn-primary" style="width:100%;" title="Booking closes once the scheduled departure time is reached.">Reserve Seat</button>
+                <?php endif; ?>
             </form>
         </div>
     <?php endforeach; ?>
@@ -578,8 +651,12 @@ require_once 'header.php';
 <script>
 function confirmTripBooking(form) {
     const baggageInput = form.querySelector('input[name="baggage_count"]');
+    const fareTierInput = form.querySelector('select[name="fare_tier_percent"]');
     const baggageCount = baggageInput ? Math.max(0, parseInt(baggageInput.value || '0', 10)) : 0;
-    const travelFare = parseFloat(form.dataset.fare || '0') || 0;
+    const baseFare = parseFloat(form.dataset.fare || '0') || 0;
+    const fareTierPercent = fareTierInput ? Math.max(0, parseInt(fareTierInput.value || '100', 10)) : 100;
+    const fareTierLabel = fareTierInput && fareTierInput.selectedOptions.length ? fareTierInput.selectedOptions[0].textContent.trim() : 'Full route';
+    const travelFare = baseFare * (fareTierPercent / 100);
     const baggageFeePerBag = parseFloat(form.dataset.baggageFee || '0') || 0;
     const baggageFee = baggageCount * baggageFeePerBag;
     const totalBill = travelFare + baggageFee;
@@ -590,8 +667,10 @@ function confirmTripBooking(form) {
         'Departure: ' + (form.dataset.departure || 'Selected departure'),
         'Vehicle: ' + (form.dataset.vehicle || 'Assigned vehicle'),
         'Driver: ' + (form.dataset.driver || 'Assigned driver'),
+        'Fare option: ' + fareTierLabel,
         'Travel fare: PHP ' + travelFare.toFixed(2),
         'Seat availability: ' + (form.dataset.seats || 'Available'),
+        'Seats left after booking: ' + (form.dataset.seatsLeftAfter || 'N/A'),
         'Baggage count: ' + baggageCount,
         'Baggage fee: PHP ' + baggageFee.toFixed(2),
         'Total bill: PHP ' + totalBill.toFixed(2),

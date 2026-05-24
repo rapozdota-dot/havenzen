@@ -78,20 +78,19 @@ if (isset($_POST['action']) && $_POST['action'] == 'add_vehicle') {
     $license_plate = $conn->real_escape_string($license_plate_raw);
     $assigned_driver_id = !empty($_POST['driver_id']) ? intval($_POST['driver_id']) : null;
     $driver_id = $assigned_driver_id === null ? 'NULL' : $assigned_driver_id;
-    $route_id = $_POST['route_id'] ?: null;
-    $route_id = $route_id === null ? 'NULL' : intval($route_id);
-    $return_route_id = $_POST['return_route_id'] ?: null;
-    $return_route_id = $return_route_id === null ? 'NULL' : intval($return_route_id);
+    $route_id = 'NULL';
+    $return_route_id = 'NULL';
     $status = $conn->real_escape_string($_POST['status']);
     $vehicle_type = $conn->real_escape_string($_POST['vehicle_type'] ?? '');
     $vehicle_color = $conn->real_escape_string($_POST['vehicle_color'] ?? '');
+    $vehicle_model = $conn->real_escape_string($_POST['vehicle_model'] ?? '');
     $seat_capacity = max(0, intval($_POST['seat_capacity'] ?? 0));
 
     if (hz_license_plate_exists($conn, $license_plate_raw)) {
         $error = "Plate number already exists.";
     } else {
-        $sql = "INSERT INTO vehicles (vehicle_name, license_plate, driver_id, route_id, return_route_id, status, vehicle_type, vehicle_color, seat_capacity) 
-                VALUES ('$vehicle_name', '$license_plate', $driver_id, $route_id, $return_route_id, '$status', '$vehicle_type', '$vehicle_color', $seat_capacity)";
+        $sql = "INSERT INTO vehicles (vehicle_name, license_plate, driver_id, route_id, return_route_id, status, vehicle_type, vehicle_color, vehicle_model, seat_capacity)
+                VALUES ('$vehicle_name', '$license_plate', $driver_id, $route_id, $return_route_id, '$status', '$vehicle_type', '$vehicle_color', '$vehicle_model', $seat_capacity)";
 
         if ($conn->query($sql)) {
             $message = "Vehicle added successfully!";
@@ -115,13 +114,12 @@ if (isset($_POST['action']) && $_POST['action'] == 'update_vehicle') {
     $license_plate = $conn->real_escape_string($license_plate_raw);
     $assigned_driver_id = !empty($_POST['driver_id']) ? intval($_POST['driver_id']) : null;
     $driver_id = $assigned_driver_id === null ? 'NULL' : $assigned_driver_id;
-    $route_id = $_POST['route_id'] ?: null;
-    $route_id = $route_id === null ? 'NULL' : intval($route_id);
-    $return_route_id = $_POST['return_route_id'] ?: null;
-    $return_route_id = $return_route_id === null ? 'NULL' : intval($return_route_id);
+    $route_id = 'NULL';
+    $return_route_id = 'NULL';
     $status = $conn->real_escape_string($_POST['status']);
     $vehicle_type = $conn->real_escape_string($_POST['vehicle_type'] ?? '');
     $vehicle_color = $conn->real_escape_string($_POST['vehicle_color'] ?? '');
+    $vehicle_model = $conn->real_escape_string($_POST['vehicle_model'] ?? '');
     $seat_capacity = max(0, intval($_POST['seat_capacity'] ?? 0));
 
     if (hz_license_plate_exists($conn, $license_plate_raw, $vehicle_id)) {
@@ -131,11 +129,10 @@ if (isset($_POST['action']) && $_POST['action'] == 'update_vehicle') {
                 vehicle_name = '$vehicle_name', 
                 license_plate = '$license_plate', 
                 driver_id = $driver_id, 
-                route_id = $route_id,
-                return_route_id = $return_route_id,
                 status = '$status',
                 vehicle_type = '$vehicle_type',
                 vehicle_color = '$vehicle_color',
+                vehicle_model = '$vehicle_model',
                 seat_capacity = $seat_capacity
                 WHERE vehicle_id = $vehicle_id";
 
@@ -251,6 +248,11 @@ if (isset($_GET['edit'])) {
             </div>
 
             <div class="form-group">
+                <label for="vehicle_model_modal">Vehicle Model</label>
+                <input type="text" id="vehicle_model_modal" name="vehicle_model" placeholder="e.g., Toyota HiAce Commuter">
+            </div>
+
+            <div class="form-group">
                 <label for="seat_capacity_modal">Seat Capacity</label>
                 <input type="number" id="seat_capacity_modal" name="seat_capacity" min="0" required>
             </div>
@@ -265,36 +267,13 @@ if (isset($_GET['edit'])) {
                         FROM users u
                         JOIN drivers d ON d.user_id = u.user_id
                         WHERE u.role = 'driver'
+                          AND d.approval_status = 'approved'
                     ");
                     while ($driver = $drivers->fetch_assoc()):
                         ?>
                         <option value="<?php echo $driver['user_id']; ?>">
                             <?php echo htmlspecialchars($driver['full_name']); ?></option>
                     <?php endwhile; ?>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label for="route_id_modal">Assigned Route</label>
-                <select id="route_id_modal" name="route_id">
-                    <option value="">Select Route (Optional)</option>
-                    <?php foreach ($routes_list as $route): ?>
-                        <option value="<?php echo $route['route_id']; ?>">
-                            <?php echo htmlspecialchars($route['route_name']); ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label for="return_route_id_modal">Assigned Return Route (Vice Versa)</label>
-                <select id="return_route_id_modal" name="return_route_id">
-                    <option value="">Select Return Route (Optional)</option>
-                    <?php foreach ($routes_list as $route): ?>
-                        <option value="<?php echo $route['route_id']; ?>">
-                            <?php echo htmlspecialchars($route['route_name']); ?>
-                        </option>
-                    <?php endforeach; ?>
                 </select>
             </div>
 
@@ -353,6 +332,11 @@ if (isset($_GET['edit'])) {
             </div>
 
             <div class="form-group">
+                <label for="vehicle_model_modal_edit">Vehicle Model</label>
+                <input type="text" id="vehicle_model_modal_edit" name="vehicle_model" placeholder="e.g., Toyota HiAce Commuter">
+            </div>
+
+            <div class="form-group">
                 <label for="seat_capacity_modal_edit">Seat Capacity</label>
                 <input type="number" id="seat_capacity_modal_edit" name="seat_capacity" min="0" required>
             </div>
@@ -367,36 +351,13 @@ if (isset($_GET['edit'])) {
                         FROM users u
                         JOIN drivers d ON d.user_id = u.user_id
                         WHERE u.role = 'driver'
+                          AND d.approval_status = 'approved'
                     ");
                     while ($driver = $drivers->fetch_assoc()):
                         ?>
                         <option value="<?php echo $driver['user_id']; ?>">
                             <?php echo htmlspecialchars($driver['full_name']); ?></option>
                     <?php endwhile; ?>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label for="route_id_modal_edit">Assigned Route</label>
-                <select id="route_id_modal_edit" name="route_id">
-                    <option value="">Select Route (Optional)</option>
-                    <?php foreach ($routes_list as $route): ?>
-                        <option value="<?php echo $route['route_id']; ?>">
-                            <?php echo htmlspecialchars($route['route_name']); ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label for="return_route_id_modal_edit">Assigned Return Route (Vice Versa)</label>
-                <select id="return_route_id_modal_edit" name="return_route_id">
-                    <option value="">Select Return Route (Optional)</option>
-                    <?php foreach ($routes_list as $route): ?>
-                        <option value="<?php echo $route['route_id']; ?>">
-                            <?php echo htmlspecialchars($route['route_name']); ?>
-                        </option>
-                    <?php endforeach; ?>
                 </select>
             </div>
 
@@ -433,14 +394,15 @@ if (isset($_GET['edit'])) {
         document.getElementById('vehicle_name_modal_edit').value = vehicle.vehicle_name;
         document.getElementById('license_plate_modal_edit').value = vehicle.license_plate;
         document.getElementById('driver_id_modal_edit').value = vehicle.driver_id || '';
-        document.getElementById('route_id_modal_edit').value = vehicle.route_id || '';
-        document.getElementById('return_route_id_modal_edit').value = vehicle.return_route_id || '';
         document.getElementById('status_modal_edit').value = vehicle.status;
         if (document.getElementById('vehicle_type_modal_edit')) {
             document.getElementById('vehicle_type_modal_edit').value = vehicle.vehicle_type || '';
         }
         if (document.getElementById('vehicle_color_modal_edit')) {
             document.getElementById('vehicle_color_modal_edit').value = vehicle.vehicle_color || '';
+        }
+        if (document.getElementById('vehicle_model_modal_edit')) {
+            document.getElementById('vehicle_model_modal_edit').value = vehicle.vehicle_model || '';
         }
         if (document.getElementById('seat_capacity_modal_edit')) {
             document.getElementById('seat_capacity_modal_edit').value = vehicle.seat_capacity || 0;
@@ -449,7 +411,7 @@ if (isset($_GET['edit'])) {
     }
 
     // Function to open edit modal from table button
-    function editVehicle(vehicleId, vehicleName, licensePlate, driverId, status, vehicleType, vehicleColor, seatCapacity, routeId, returnRouteId) {
+    function editVehicle(vehicleId, vehicleName, licensePlate, driverId, status, vehicleType, vehicleColor, vehicleModel, seatCapacity) {
         const vehicle = {
             vehicle_id: vehicleId,
             vehicle_name: vehicleName,
@@ -458,9 +420,8 @@ if (isset($_GET['edit'])) {
             status: status,
             vehicle_type: vehicleType,
             vehicle_color: vehicleColor,
-            seat_capacity: seatCapacity,
-            route_id: routeId,
-            return_route_id: returnRouteId
+            vehicle_model: vehicleModel,
+            seat_capacity: seatCapacity
         };
         openEditModal(vehicle);
     }
@@ -612,8 +573,8 @@ if (isset($_GET['edit'])) {
                 <th>Vehicle Name</th>
                 <th>License Plate</th>
                 <th>Vehicle Type</th>
+                <th>Model</th>
                 <th>Seats</th>
-                <th>Assigned Route</th>
                 <th>Assigned Driver</th>
                 <th>Status</th>
                 <th>Actions</th>
@@ -638,16 +599,8 @@ if (isset($_GET['edit'])) {
                     <td><?php echo htmlspecialchars($vehicle['license_plate']); ?></td>
                     <td><?php echo $vehicle['vehicle_type'] ? ucfirst(htmlspecialchars($vehicle['vehicle_type'])) : 'N/A'; ?>
                     </td>
+                    <td><?php echo !empty($vehicle['vehicle_model']) ? htmlspecialchars($vehicle['vehicle_model']) : 'N/A'; ?></td>
                     <td><?php echo intval($vehicle['seat_capacity'] ?? 0); ?></td>
-                    <td>
-                        <?php echo $vehicle['route_name'] ? htmlspecialchars($vehicle['route_name']) : '<em style="color: #999;">Unassigned</em>'; ?>
-                        <?php if ($vehicle['return_route_name']): ?>
-                            <div style="font-size: 0.85em; color: #666; margin-top: 4px;">
-                                <i class="fas fa-exchange-alt" style="margin-right: 4px;"></i>
-                                <?php echo htmlspecialchars($vehicle['return_route_name']); ?>
-                            </div>
-                        <?php endif; ?>
-                    </td>
                     <td><?php echo $vehicle['driver_name'] ? htmlspecialchars($vehicle['driver_name']) : '<em style="color: #999;">To be assigned</em>'; ?>
                     </td>
                     <td><span
@@ -662,9 +615,8 @@ if (isset($_GET['edit'])) {
                                 '<?php echo $vehicle['status']; ?>',
                                 '<?php echo addslashes($vehicle['vehicle_type'] ?? ''); ?>',
                                 '<?php echo addslashes($vehicle['vehicle_color'] ?? ''); ?>',
-                                <?php echo intval($vehicle['seat_capacity'] ?? 0); ?>,
-                                <?php echo $vehicle['route_id'] ?: 'null'; ?>,
-                                <?php echo $vehicle['return_route_id'] ?: 'null'; ?>
+                                '<?php echo addslashes($vehicle['vehicle_model'] ?? ''); ?>',
+                                <?php echo intval($vehicle['seat_capacity'] ?? 0); ?>
                             )">Edit</button>
                         <button type="button" class="btn btn-danger"
                             onclick="showDeleteConfirm('vehicles.php?action=delete&id=<?php echo $vehicle['vehicle_id']; ?>', '<?php echo addslashes($vehicle['vehicle_name']); ?>')">Delete</button>

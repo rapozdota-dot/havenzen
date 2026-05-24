@@ -609,6 +609,7 @@ function updateVehicleMap(vehicles) {
                     <h4 style="margin:0 0 10px 0;color:#333;">${vehicle.vehicle_name || ''}</h4>
                     <p><strong>Driver:</strong> ${vehicle.driver_name || 'N/A'}</p>
                     <p><strong>Plate:</strong> ${vehicle.license_plate || ''}</p>
+                    <p><strong>Model:</strong> ${vehicle.vehicle_model || vehicle.vehicle_type || 'N/A'}</p>
                     <p><strong>Status:</strong> <span style="color:${vehicle.status === 'active' ? 'green' : 'orange'}">${vehicle.status || ''}</span></p>
                     <p><strong>Last Update:</strong> ${vehicle.last_update || ''}s ago</p>
                     <p><strong>Coordinates:</strong><br>${lat.toFixed(6)}, ${lng.toFixed(6)}</p>

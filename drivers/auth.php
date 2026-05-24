@@ -66,6 +66,7 @@ $stmt = $conn->prepare("
         d.emergency_phone,
         d.address,
         d.is_online,
+        d.approval_status,
         d.driver_id,
         v.vehicle_id,
         v.vehicle_name,
@@ -91,6 +92,17 @@ if (!$driver_data) {
         header('Location: ../login/login.php', true, 302);
     }
     echo '<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=../login/login.php"><title>Redirecting</title></head><body><p>Driver account not found. Redirecting to login...</p><script>window.location.replace("../login/login.php");</script></body></html>';
+    exit();
+}
+
+$driverApprovalStatus = strtolower(trim((string) ($driver_data['approval_status'] ?? 'approved')));
+if ($driverApprovalStatus !== 'approved') {
+    session_unset();
+    session_destroy();
+    if (!headers_sent()) {
+        header('Location: ../login/login.php', true, 302);
+    }
+    echo '<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=../login/login.php"><title>Redirecting</title></head><body><p>Driver account is not approved yet. Redirecting to login...</p><script>window.location.replace("../login/login.php");</script></body></html>';
     exit();
 }
 

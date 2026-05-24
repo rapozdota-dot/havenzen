@@ -303,6 +303,7 @@ function updateVehicleMap(vehicles) {
                     <h4 style="margin: 0 0 8px 0; color: #333;">${vehicle.vehicle_name}</h4>
                     <p style="margin: 0 0 4px 0;"><strong>Driver:</strong> ${vehicle.driver_name || 'N/A'}</p>
                     <p style="margin: 0 0 4px 0;"><strong>Plate:</strong> ${vehicle.license_plate}</p>
+                    <p style="margin: 0 0 4px 0;"><strong>Model:</strong> ${vehicle.vehicle_model || vehicle.vehicle_type || 'N/A'}</p>
                     <p style="margin: 0 0 4px 0;"><strong>Route:</strong> ${vehicle.route_name || 'Unassigned'}</p>
                     <p style="margin: 0 0 4px 0;"><strong>Status:</strong> ${vehicle.status}</p>
                     <p style="margin: 0;"><strong>GPS:</strong> ${isLive ? 'Live' : 'Last known'}${vehicle.last_update === null ? '' : ` (${vehicle.last_update}s ago)`}</p>
@@ -384,7 +385,7 @@ function updateVehicleList(vehicles) {
                     <i class="fas fa-bus" style="color: #2196F3;"></i>
                     ${vehicle.vehicle_name}
                 </strong>
-                <small>${vehicle.license_plate} &bull; ${vehicle.driver_name || 'No driver'} &bull; <span style="color: ${statusColor};">${status}</span></small>
+                <small>${vehicle.license_plate} &bull; ${vehicle.vehicle_model || vehicle.vehicle_type || 'No model'} &bull; ${vehicle.driver_name || 'No driver'} &bull; <span style="color: ${statusColor};">${status}</span></small>
             </div>
             <a href="booking.php?vehicle_id=${vehicle.vehicle_id}" class="btn btn-primary" onclick="event.stopPropagation();" style="font-size: 0.75rem; padding: 0.25rem 0.5rem; margin-left: 8px;">
                 Book

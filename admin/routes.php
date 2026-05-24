@@ -206,6 +206,7 @@ $driversResult = $conn->query("
     FROM users u
     JOIN drivers d ON d.user_id = u.user_id
     WHERE u.role = 'driver'
+      AND d.approval_status = 'approved'
     ORDER BY d.full_name ASC
 ");
 if ($driversResult) {

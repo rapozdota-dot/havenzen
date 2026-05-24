@@ -39,6 +39,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $role = strtolower(trim((string) $user['role']));
 
+                if ($role === 'driver') {
+                    $approvalStmt = $conn->prepare("SELECT approval_status FROM drivers WHERE user_id = ? LIMIT 1");
+                    if ($approvalStmt) {
+                        $approvalStmt->bind_param("i", $user['user_id']);
+                        $approvalStmt->execute();
+                        $approvalResult = $approvalStmt->get_result();
+                        $approvalRow = $approvalResult ? $approvalResult->fetch_assoc() : null;
+                        $approvalStmt->close();
+
+                        $approvalStatus = strtolower(trim((string) ($approvalRow['approval_status'] ?? 'approved')));
+                        if ($approvalStatus === 'pending') {
+                            $login_error = "Your driver account is still pending superadmin approval.";
+                            logSystemEvent($conn, $user['user_id'], 'LOGIN_BLOCKED', 'Pending driver approval for user: ' . $user['username']);
+                            $conn->close();
+                            goto render_login_page;
+                        }
+                        if ($approvalStatus === 'rejected') {
+                            $login_error = "Your driver account application was not approved. Please contact the administrator.";
+                            logSystemEvent($conn, $user['user_id'], 'LOGIN_BLOCKED', 'Rejected driver approval for user: ' . $user['username']);
+                            $conn->close();
+                            goto render_login_page;
+                        }
+                    }
+                }
+
                 // Successful login
                 $_SESSION['user_id'] = $user['user_id'];
                 $_SESSION['username'] = $user['username'];
@@ -121,6 +146,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $conn->close();
+render_login_page:
 ?>
 <!DOCTYPE html>
 <html lang="en">
