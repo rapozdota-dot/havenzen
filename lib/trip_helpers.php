@@ -96,19 +96,27 @@ function hz_ensure_schedule_driver_columns($conn)
     return true;
 }
 
+function hz_route_place_label(string $place): string
+{
+    $place = trim(preg_replace('/\s+/', ' ', $place));
+    $place = preg_replace('/,\s*(Philippines|PH)\s*$/i', '', $place);
+    return trim($place);
+}
+
 function hz_route_endpoints($routeRow)
 {
     $stops = json_decode($routeRow['stops'] ?? '[]', true);
     if (!is_array($stops) || count($stops) < 2) {
+        $routeName = hz_route_place_label((string) ($routeRow['route_name'] ?? 'Route'));
         return [
-            'origin' => $routeRow['route_name'] ?? 'Route',
-            'destination' => $routeRow['route_name'] ?? 'Route',
+            'origin' => $routeName,
+            'destination' => $routeName,
         ];
     }
 
     return [
-        'origin' => $stops[0]['name'] ?? ($routeRow['route_name'] ?? 'Route'),
-        'destination' => $stops[count($stops) - 1]['name'] ?? ($routeRow['route_name'] ?? 'Route'),
+        'origin' => hz_route_place_label((string) ($stops[0]['name'] ?? ($routeRow['route_name'] ?? 'Route'))),
+        'destination' => hz_route_place_label((string) ($stops[count($stops) - 1]['name'] ?? ($routeRow['route_name'] ?? 'Route'))),
     ];
 }
 

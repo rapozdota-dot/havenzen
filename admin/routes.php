@@ -255,12 +255,12 @@ require_once 'header.php';
 
             <div class="form-group">
                 <label for="origin_modal">From (Origin)</label>
-                <input type="text" id="origin_modal" name="origin" required placeholder="e.g., Barugo, Leyte, Philippines">
+                <input type="text" id="origin_modal" name="origin" required placeholder="e.g., Barugo, Leyte">
             </div>
 
             <div class="form-group">
                 <label for="destination_modal">To (Destination)</label>
-                <input type="text" id="destination_modal" name="destination" required placeholder="e.g., Tacloban, Leyte, Philippines">
+                <input type="text" id="destination_modal" name="destination" required placeholder="e.g., Tacloban, Leyte">
             </div>
 
             <div class="form-group">
