@@ -363,6 +363,54 @@ $conn->close();
             font-size: 0.9rem;
         }
 
+        .password-input {
+            position: relative;
+        }
+
+        .password-input input {
+            width: 100%;
+            padding-right: 46px !important;
+        }
+
+        .password-toggle {
+            position: absolute;
+            top: 50%;
+            right: 8px;
+            width: 34px;
+            height: 34px;
+            transform: translateY(-50%);
+            display: inline-grid;
+            place-items: center;
+            border: 0;
+            border-radius: 8px;
+            background: transparent;
+            color: #64748b;
+            cursor: pointer;
+            transition: background 0.2s ease, color 0.2s ease;
+        }
+
+        .password-toggle:hover,
+        .password-toggle:focus-visible {
+            background: #f1f5f9;
+            color: #111827;
+            outline: none;
+        }
+
+        .password-toggle svg {
+            width: 18px;
+            height: 18px;
+            pointer-events: none;
+        }
+
+        .password-toggle .icon-eye-off,
+        .password-toggle.is-visible .icon-eye {
+            display: none;
+        }
+
+        .password-toggle.is-visible .icon-eye-off {
+            display: block;
+        }
+
         .register-page .form-group textarea {
             width: 100%;
             min-height: 84px;
@@ -536,12 +584,24 @@ $conn->close();
 
                         <div class="form-group field-span-2">
                             <label for="password">Password *</label>
-                            <input type="password" id="password" name="password" placeholder="Create a strong password" required>
+                            <div class="password-input">
+                                <input type="password" id="password" name="password" placeholder="Create a strong password" required>
+                                <button type="button" class="password-toggle" data-target="password" aria-label="Show password" aria-pressed="false">
+                                    <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                    <svg class="icon-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M10.6 10.6A3 3 0 0 0 12 15a3 3 0 0 0 1.4-.35"></path><path d="M9.9 4.25A10.7 10.7 0 0 1 12 4c6.5 0 10 8 10 8a18.6 18.6 0 0 1-3.1 4.35"></path><path d="M6.6 6.6C3.65 8.55 2 12 2 12s3.5 8 10 8a10.8 10.8 0 0 0 4.4-.95"></path></svg>
+                                </button>
+                            </div>
                         </div>
 
                         <div class="form-group field-span-2">
                             <label for="confirm_password">Type Password Again *</label>
-                            <input type="password" id="confirm_password" name="confirm_password" placeholder="Re-enter password" required>
+                            <div class="password-input">
+                                <input type="password" id="confirm_password" name="confirm_password" placeholder="Re-enter password" required>
+                                <button type="button" class="password-toggle" data-target="confirm_password" aria-label="Show password confirmation" aria-pressed="false">
+                                    <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                    <svg class="icon-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M10.6 10.6A3 3 0 0 0 12 15a3 3 0 0 0 1.4-.35"></path><path d="M9.9 4.25A10.7 10.7 0 0 1 12 4c6.5 0 10 8 10 8a18.6 18.6 0 0 1-3.1 4.35"></path><path d="M6.6 6.6C3.65 8.55 2 12 2 12s3.5 8 10 8a10.8 10.8 0 0 0 4.4-.95"></path></svg>
+                                </button>
+                            </div>
                             <div class="password-rules" aria-live="polite">
                                 <span class="password-rule" data-rule="length">6+ characters</span>
                                 <span class="password-rule" data-rule="upper">Uppercase letter</span>
@@ -703,6 +763,19 @@ $conn->close();
         });
         password.addEventListener('input', syncPasswordRules);
         confirmPassword.addEventListener('input', syncPasswordRules);
+
+        document.querySelectorAll('.password-toggle').forEach(function (button) {
+            button.addEventListener('click', function () {
+                const field = document.getElementById(button.dataset.target);
+                if (!field) return;
+
+                const showing = field.type === 'text';
+                field.type = showing ? 'password' : 'text';
+                button.classList.toggle('is-visible', !showing);
+                button.setAttribute('aria-pressed', String(!showing));
+                button.setAttribute('aria-label', (showing ? 'Show' : 'Hide') + (field.id === 'confirm_password' ? ' password confirmation' : ' password'));
+            });
+        });
 
         syncRoleFields();
         syncPasswordRules();
