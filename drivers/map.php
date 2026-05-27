@@ -153,9 +153,10 @@ let vehicleLocationsInFlight = false;
 let vehicleLocationsTimer = null;
 let hasCenteredVehicle = false;
 let hasCenteredDriver = false;
-const GPS_UPDATE_INTERVAL_MS = 10000;
-const LOCATION_HEARTBEAT_INTERVAL_MS = 30000;
-const VEHICLE_REFRESH_INTERVAL_MS = 12000;
+const GPS_UPDATE_INTERVAL_MS = 3000;
+const LOCATION_HEARTBEAT_INTERVAL_MS = 3000;
+const VEHICLE_REFRESH_INTERVAL_MS = 3000;
+const SMOOTH_MARKER_DURATION_MS = 2600;
 let lastLocationSentAt = 0;
 
 function initMap() {
@@ -235,6 +236,55 @@ function updateRefreshTimer() {
     document.getElementById('last-update').textContent = `Last updated: ${timeString}`;
 }
 
+function moveMarkerSmoothly(marker, nextPosition, durationMs) {
+    if (!marker) return;
+
+    const currentPosition = marker.getPosition && marker.getPosition();
+    if (!currentPosition || typeof requestAnimationFrame !== 'function') {
+        marker.setPosition(nextPosition);
+        return;
+    }
+
+    const fromLat = currentPosition.lat();
+    const fromLng = currentPosition.lng();
+    const toLat = Number(nextPosition.lat);
+    const toLng = Number(nextPosition.lng);
+    if (!Number.isFinite(toLat) || !Number.isFinite(toLng)) return;
+
+    if (Math.abs(fromLat - toLat) < 0.000001 && Math.abs(fromLng - toLng) < 0.000001) {
+        marker.setPosition(nextPosition);
+        return;
+    }
+
+    if (marker._havenzenAnimationFrame) {
+        cancelAnimationFrame(marker._havenzenAnimationFrame);
+    }
+
+    const startedAt = performance.now();
+    const duration = Math.max(300, durationMs || SMOOTH_MARKER_DURATION_MS);
+
+    function step(now) {
+        const progress = Math.min(1, (now - startedAt) / duration);
+        const eased = progress < 0.5
+            ? 2 * progress * progress
+            : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+
+        marker.setPosition({
+            lat: fromLat + (toLat - fromLat) * eased,
+            lng: fromLng + (toLng - fromLng) * eased
+        });
+
+        if (progress < 1) {
+            marker._havenzenAnimationFrame = requestAnimationFrame(step);
+        } else {
+            marker._havenzenAnimationFrame = null;
+            marker.setPosition(nextPosition);
+        }
+    }
+
+    marker._havenzenAnimationFrame = requestAnimationFrame(step);
+}
+
 // Start tracking driver's location
 function startLocationTracking() {
     if (!navigator.geolocation) {
@@ -293,7 +343,7 @@ function handleDriverPosition(position, forceUpload) {
     };
 
     if (driverMarker) {
-        driverMarker.setPosition(newPos);
+        moveMarkerSmoothly(driverMarker, newPos, SMOOTH_MARKER_DURATION_MS);
         if (!hasCenteredDriver) {
             driverMap.panTo(newPos);
             driverMap.setZoom(17);
@@ -373,14 +423,17 @@ function loadDriverData() {
                             }
                         });
                     } else {
-                        vehicleMarker.setPosition(vPos);
+                        moveMarkerSmoothly(vehicleMarker, vPos, SMOOTH_MARKER_DURATION_MS);
                     }
 
                     try {
                         const bounds = new google.maps.LatLngBounds();
                         if (driverMarker) bounds.extend(driverMarker.getPosition());
                         bounds.extend(new google.maps.LatLng(vLat, vLng));
-                        driverMap.fitBounds(bounds);
+                        if (!hasCenteredVehicle) {
+                            driverMap.fitBounds(bounds);
+                            hasCenteredVehicle = true;
+                        }
                     } catch (e) {
                         // ignore
                     }
@@ -635,7 +688,7 @@ function updateVehicleMap(vehicles) {
 
         let marker = window.vehicleMarkers[markerId];
         if (marker) {
-            marker.setPosition(position);
+            moveMarkerSmoothly(marker, position, SMOOTH_MARKER_DURATION_MS);
             marker.setTitle(vehicle.vehicle_name || 'Vehicle');
             if (marker.infoWindow) {
                 marker.infoWindow.setContent(infoContent);
