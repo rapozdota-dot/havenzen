@@ -13,4 +13,6 @@ RUN cp config.example.php config.php \
     && mkdir -p storage uploads uploads/licenses uploads/profiles \
     && chmod -R 777 storage uploads
 
-CMD ["sh", "-c", "php -S 0.0.0.0:${PORT:-8080} -t /app"]
+ENV PHP_CLI_SERVER_WORKERS=4
+
+CMD ["sh", "-c", "PHP_CLI_SERVER_WORKERS=${PHP_CLI_SERVER_WORKERS:-4} exec php -S 0.0.0.0:${PORT:-8080} -t /app"]

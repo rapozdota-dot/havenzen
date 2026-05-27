@@ -440,11 +440,78 @@ if (!function_exists('hz_add_column_if_missing')) {
     }
 }
 
+if (!function_exists('hz_schema_marker_path')) {
+    function hz_schema_marker_path($version)
+    {
+        $storageDir = __DIR__ . '/storage';
+        if (!is_dir($storageDir) && !@mkdir($storageDir, 0775, true) && !is_dir($storageDir)) {
+            return '';
+        }
+
+        $safeVersion = preg_replace('/[^a-zA-Z0-9_.-]/', '_', (string) $version);
+        return $storageDir . '/schema_' . $safeVersion . '.ok';
+    }
+}
+
+if (!function_exists('hz_core_table_has_index')) {
+    function hz_core_table_has_index($connection, $table, $index)
+    {
+        $table = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $table);
+        $index = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $index);
+        if ($table === '' || $index === '') {
+            return false;
+        }
+
+        $result = $connection->query("SHOW INDEX FROM {$table} WHERE Key_name = '{$index}'");
+        return $result && $result->num_rows > 0;
+    }
+}
+
+if (!function_exists('hz_add_index_if_missing')) {
+    function hz_add_index_if_missing($connection, $table, $index, $columns)
+    {
+        $table = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $table);
+        $index = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $index);
+        if ($table === '' || $index === '' || hz_core_table_has_index($connection, $table, $index)) {
+            return true;
+        }
+
+        return (bool) $connection->query("CREATE INDEX {$index} ON {$table} ({$columns})");
+    }
+}
+
+if (!function_exists('hz_ensure_havenzen_performance_indexes')) {
+    function hz_ensure_havenzen_performance_indexes($connection)
+    {
+        $indexes = [
+            ['locations', 'idx_locations_vehicle_timestamp', 'vehicle_id, timestamp'],
+            ['vehicles', 'idx_vehicles_driver_id', 'driver_id'],
+            ['bookings', 'idx_bookings_driver_status', 'driver_id, status'],
+            ['bookings', 'idx_bookings_vehicle_status', 'vehicle_id, status'],
+            ['vehicle_trips', 'idx_vehicle_trips_departure_status', 'scheduled_departure_at, trip_status'],
+        ];
+
+        foreach ($indexes as $indexSpec) {
+            [$table, $index, $columns] = $indexSpec;
+            hz_add_index_if_missing($connection, $table, $index, $columns);
+        }
+
+        return true;
+    }
+}
+
 if (!function_exists('hz_ensure_havenzen_feature_columns')) {
     function hz_ensure_havenzen_feature_columns($connection)
     {
         static $checked = false;
         if ($checked || !$connection) {
+            return true;
+        }
+
+        $schemaVersion = '20260528_performance_schema';
+        $markerPath = hz_schema_marker_path($schemaVersion);
+        if ($markerPath !== '' && is_file($markerPath)) {
+            $checked = true;
             return true;
         }
 
@@ -461,9 +528,16 @@ if (!function_exists('hz_ensure_havenzen_feature_columns')) {
             ['bookings', 'fare_tier_label', "VARCHAR(50) NOT NULL DEFAULT 'Full route'"],
         ];
 
+        $columnsOk = true;
         foreach ($columns as $columnSpec) {
             [$table, $column, $definition] = $columnSpec;
-            hz_add_column_if_missing($connection, $table, $column, $definition);
+            $columnsOk = hz_add_column_if_missing($connection, $table, $column, $definition) && $columnsOk;
+        }
+
+        hz_ensure_havenzen_performance_indexes($connection);
+
+        if ($columnsOk && $markerPath !== '') {
+            @file_put_contents($markerPath, gmdate('c'));
         }
 
         $checked = true;

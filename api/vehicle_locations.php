@@ -5,6 +5,8 @@ header('Content-Type: application/json');
 try {
     // Get every vehicle with its latest known location and assigned driver.
     $vehicle_id_filter = isset($_GET['vehicle_id']) ? intval($_GET['vehicle_id']) : null;
+    $locationFilterSql = $vehicle_id_filter ? "WHERE vehicle_id = {$vehicle_id_filter}" : '';
+    $locationOuterFilterSql = $vehicle_id_filter ? "WHERE l1.vehicle_id = {$vehicle_id_filter}" : '';
     
     $query = "
         SELECT 
@@ -32,9 +34,11 @@ try {
             INNER JOIN (
                 SELECT vehicle_id, MAX(timestamp) as latest_timestamp
                 FROM locations
+                {$locationFilterSql}
                 GROUP BY vehicle_id
             ) latest ON latest.vehicle_id = l1.vehicle_id
                     AND latest.latest_timestamp = l1.timestamp
+            {$locationOuterFilterSql}
         ) l ON v.vehicle_id = l.vehicle_id
         WHERE 1 = 1
     ";

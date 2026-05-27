@@ -14,7 +14,7 @@
                 <button class="modal-close" onclick="closeLocationModal()">&times;</button>
             </div>
             <div class="modal-body">
-                <p>Your current location is shared automatically every 6 seconds while you are online. You can also send it now if needed.</p>
+                <p>Your current location is shared automatically while you are online. You can also send it now if needed.</p>
                 <div class="location-coordinates">
                     <span id="currentCoordinates">Getting location...</span>
                 </div>
@@ -111,7 +111,7 @@
     }
 
     // Location Services
-    const DRIVER_LOCATION_INTERVAL_MS = 6000;
+    const DRIVER_LOCATION_INTERVAL_MS = 15000;
     let currentLocation = null;
     let driverLocationTimer = null;
     let driverLocationInFlight = false;

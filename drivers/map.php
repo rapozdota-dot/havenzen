@@ -149,7 +149,13 @@ let firstDataLoad = true;
 let watchId = null;
 let locationIntervalId = null;
 let mapLocationInFlight = false;
-const GPS_UPDATE_INTERVAL_MS = 6000;
+let vehicleLocationsInFlight = false;
+let vehicleLocationsTimer = null;
+let hasCenteredVehicle = false;
+let hasCenteredDriver = false;
+const GPS_UPDATE_INTERVAL_MS = 10000;
+const LOCATION_HEARTBEAT_INTERVAL_MS = 30000;
+const VEHICLE_REFRESH_INTERVAL_MS = 12000;
 let lastLocationSentAt = 0;
 
 function initMap() {
@@ -242,7 +248,7 @@ function startLocationTracking() {
 
     locationIntervalId = setInterval(function() {
         requestAndSendDriverLocation(true);
-    }, GPS_UPDATE_INTERVAL_MS);
+    }, LOCATION_HEARTBEAT_INTERVAL_MS);
 
     watchId = navigator.geolocation.watchPosition(
         (position) => handleDriverPosition(position, false),
@@ -288,8 +294,11 @@ function handleDriverPosition(position, forceUpload) {
 
     if (driverMarker) {
         driverMarker.setPosition(newPos);
-        driverMap.panTo(newPos);
-        driverMap.setZoom(17);
+        if (!hasCenteredDriver) {
+            driverMap.panTo(newPos);
+            driverMap.setZoom(17);
+            hasCenteredDriver = true;
+        }
     }
 
     const now = Date.now();
@@ -523,6 +532,8 @@ function updateBookingsMap(bookings) {
 function loadVehicleLocations(silent) {
     silent = !!silent;
     if (!mapInitialized) return;
+    if (vehicleLocationsInFlight) return;
+    vehicleLocationsInFlight = true;
 
     const refreshBtn = document.getElementById('refresh-btn');
     const refreshText = document.getElementById('refresh-text');
@@ -533,7 +544,10 @@ function loadVehicleLocations(silent) {
         if (refreshBtn) refreshBtn.disabled = true;
     }
 
-    fetch('../api/vehicle_locations.php')
+    const assignedId = <?php echo intval($assigned_vehicle_id ?? 0); ?>;
+    const vehicleUrl = '../api/vehicle_locations.php' + (assignedId ? '?vehicle_id=' + encodeURIComponent(assignedId) : '');
+
+    fetch(vehicleUrl)
         .then(function(response) {
             if (!response.ok) throw new Error('HTTP ' + response.status);
             return response.json();
@@ -541,10 +555,8 @@ function loadVehicleLocations(silent) {
         .then(function(data) {
             if (data.status !== 'success') throw new Error(data.message || 'API error');
 
-            // Filter vehicles to only the assigned vehicle id from PHP
-            const assignedId = <?php echo intval($assigned_vehicle_id ?? 0); ?>;
             const vehicles = (data.vehicles || []).filter(function(v) {
-                return assignedId && Number(v.vehicle_id) === Number(assignedId);
+                return !assignedId || Number(v.vehicle_id) === Number(assignedId);
             });
 
             updateVehicleMap(vehicles);
@@ -557,6 +569,7 @@ function loadVehicleLocations(silent) {
             if (statusTextEl) statusTextEl.textContent = 'Vehicle load error';
         })
         .finally(function() {
+            vehicleLocationsInFlight = false;
             if (!silent) {
                 if (refreshText) refreshText.style.display = 'inline';
                 if (refreshSpinner) refreshSpinner.style.display = 'none';
@@ -579,14 +592,9 @@ function escapeHtml(value) {
 
 // Update vehicle map (copied from admin code, adapted for driver page)
 function updateVehicleMap(vehicles) {
-    // Clear existing vehicle markers
-    try {
-        if (window.vehicleMarkers) {
-            Object.values(window.vehicleMarkers).forEach(function(m){ m.setMap(null); });
-        }
-    } catch (e) {}
-
-    window.vehicleMarkers = {};
+    if (!window.vehicleMarkers) {
+        window.vehicleMarkers = {};
+    }
 
     if (!vehicles || vehicles.length === 0) {
         const list = document.getElementById('vehicle-list') || document.getElementById('booking-list');
@@ -597,6 +605,7 @@ function updateVehicleMap(vehicles) {
     }
 
     const bounds = new google.maps.LatLngBounds();
+    const seenVehicleIds = new Set();
 
     vehicles.forEach(function(vehicle){
         const lat = parseFloat(vehicle.latitude);
@@ -608,20 +617,11 @@ function updateVehicleMap(vehicles) {
         const plate = escapeHtml(vehicle.license_plate || 'N/A');
         const model = escapeHtml(vehicle.vehicle_model || vehicle.vehicle_type || 'N/A');
         const status = escapeHtml(vehicle.status || 'N/A');
-        const marker = new google.maps.Marker({
-            position: { lat: lat, lng: lng },
-            map: driverMap,
-            title: vehicle.vehicle_name || 'Vehicle',
-            icon: {
-                url: 'https://maps.gstatic.com/mapfiles/ms2/micons/bus.png',
-                scaledSize: new google.maps.Size(48, 48), // Larger icon for prominence
-                anchor: new google.maps.Point(24, 24)
-            },
-            animation: google.maps.Animation.BOUNCE // More visible
-        });
+        const position = { lat: lat, lng: lng };
+        const markerId = String(vehicle.vehicle_id);
+        seenVehicleIds.add(markerId);
 
-        const infoWindow = new google.maps.InfoWindow({
-            content: `
+        const infoContent = `
                 <div style="min-width:250px;padding:15px;">
                     <h4 style="margin:0 0 10px 0;color:#333;">${vehicleName}</h4>
                     <p><strong>Driver:</strong> ${driverName}</p>
@@ -631,28 +631,55 @@ function updateVehicleMap(vehicles) {
                     <p><strong>Last Update:</strong> ${escapeHtml(vehicle.last_update || '')}s ago</p>
                     <p><strong>Coordinates:</strong><br>${lat.toFixed(6)}, ${lng.toFixed(6)}</p>
                 </div>
-            `
-        });
+            `;
 
-        marker.addListener('click', function(){
-            try { Object.values(window.vehicleMarkers).forEach(function(m){ if (m.infoWindow) m.infoWindow.close(); }); } catch(e){}
-            infoWindow.open(driverMap, marker);
-            marker.infoWindow = infoWindow;
-        });
+        let marker = window.vehicleMarkers[markerId];
+        if (marker) {
+            marker.setPosition(position);
+            marker.setTitle(vehicle.vehicle_name || 'Vehicle');
+            if (marker.infoWindow) {
+                marker.infoWindow.setContent(infoContent);
+            }
+        } else {
+            marker = new google.maps.Marker({
+                position: position,
+                map: driverMap,
+                title: vehicle.vehicle_name || 'Vehicle',
+                icon: {
+                    url: 'https://maps.gstatic.com/mapfiles/ms2/micons/bus.png',
+                    scaledSize: new google.maps.Size(42, 42),
+                    anchor: new google.maps.Point(21, 21)
+                }
+            });
 
-        window.vehicleMarkers[vehicle.vehicle_id] = marker;
+            marker.infoWindow = new google.maps.InfoWindow({ content: infoContent });
+
+            marker.addListener('click', function(){
+                try { Object.values(window.vehicleMarkers).forEach(function(m){ if (m.infoWindow) m.infoWindow.close(); }); } catch(e){}
+                marker.infoWindow.open(driverMap, marker);
+            });
+
+            window.vehicleMarkers[markerId] = marker;
+        }
+
         bounds.extend(marker.getPosition());
     });
 
-    // Always center and zoom on the first (or only) vehicle
-    if (!bounds.isEmpty()) {
+    Object.keys(window.vehicleMarkers).forEach(function(vehicleId) {
+        if (!seenVehicleIds.has(vehicleId)) {
+            window.vehicleMarkers[vehicleId].setMap(null);
+            delete window.vehicleMarkers[vehicleId];
+        }
+    });
+
+    if (!bounds.isEmpty() && !hasCenteredVehicle) {
         try {
-            // Center on the first vehicle and set zoom to 17
             const firstVehicle = vehicles[0];
             if (firstVehicle) {
                 const center = { lat: parseFloat(firstVehicle.latitude), lng: parseFloat(firstVehicle.longitude) };
                 driverMap.panTo(center);
                 driverMap.setZoom(17);
+                hasCenteredVehicle = true;
             }
         } catch (e) {
             // ignore pan/zoom errors
@@ -710,8 +737,8 @@ function centerOnVehicle(vehicleId) {
     if (marker.infoWindow) marker.infoWindow.open(driverMap, marker);
 }
 
-// Keep the driver's own map close to the GPS upload rhythm.
-setInterval(function(){ if (mapInitialized) loadVehicleLocations(true); }, GPS_UPDATE_INTERVAL_MS);
+// Keep the driver's own map fresh without rebuilding markers too aggressively on mobile.
+vehicleLocationsTimer = setInterval(function(){ if (mapInitialized) loadVehicleLocations(true); }, VEHICLE_REFRESH_INTERVAL_MS);
 
 // Update booking list sidebar
 function updateBookingList(bookings) {
@@ -942,6 +969,9 @@ window.addEventListener('beforeunload', function() {
     if (locationIntervalId) {
         clearInterval(locationIntervalId);
     }
+    if (vehicleLocationsTimer) {
+        clearInterval(vehicleLocationsTimer);
+    }
 });
 
 // Attach refresh button handler after functions are defined
@@ -977,7 +1007,7 @@ loadGoogleMaps();
 <style>
 .map-layout {
     display: grid;
-    grid-template-columns: 320px 1fr;
+    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
     gap: 20px;
     margin-bottom: 20px;
 }
@@ -1021,7 +1051,8 @@ loadGoogleMaps();
 }
 
 .driver-map-container {
-    height: 600px !important;
+    height: min(68dvh, 640px) !important;
+    min-height: 520px;
     width: 100% !important;
     background: #f8f9fa;
     border-radius: 8px;
@@ -1032,7 +1063,7 @@ loadGoogleMaps();
 #driver-map {
     height: 100% !important;
     width: 100% !important;
-    min-height: 600px;
+    min-height: inherit;
 }
 
 .card {
@@ -1107,8 +1138,8 @@ loadGoogleMaps();
 @media (max-width: 768px) {
     .driver-map-container,
     #driver-map {
-        height: 400px !important;
-        min-height: 400px;
+        height: min(64dvh, 520px) !important;
+        min-height: 380px;
     }
     
     .card {
@@ -1150,8 +1181,8 @@ loadGoogleMaps();
     
     .driver-map-container,
     #driver-map {
-        height: 300px !important;
-        min-height: 300px;
+        height: min(62dvh, 480px) !important;
+        min-height: 340px;
     }
     
     .map-sidebar {
