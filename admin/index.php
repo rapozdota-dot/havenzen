@@ -84,6 +84,43 @@ $todayVehicleIncome = $conn->query("
     ORDER BY gross_income DESC, trip_count DESC, v.vehicle_name ASC
 ");
 
+$upcomingArrivals = [];
+$arrivalResult = $conn->query("
+    SELECT
+        vt.trip_id,
+        vt.direction,
+        vt.scheduled_departure_at,
+        vt.arrival_reported_at,
+        vt.trip_status,
+        v.vehicle_name,
+        v.license_plate,
+        v.vehicle_model,
+        v.vehicle_type,
+        d.full_name AS driver_name,
+        r.route_name,
+        r.stops,
+        r.travel_minutes
+    FROM vehicle_trips vt
+    JOIN vehicles v ON v.vehicle_id = vt.vehicle_id
+    JOIN routes r ON r.route_id = vt.route_id
+    LEFT JOIN drivers d ON d.user_id = vt.driver_id
+    WHERE DATE(vt.scheduled_departure_at) = CURDATE()
+      AND vt.trip_status <> 'cancelled'
+    ORDER BY vt.scheduled_departure_at ASC
+    LIMIT 10
+");
+if ($arrivalResult) {
+    while ($arrival = $arrivalResult->fetch_assoc()) {
+        $endpoints = hz_route_endpoints($arrival);
+        $travelMinutes = max(0, intval($arrival['travel_minutes'] ?? 0));
+        $arrival['origin'] = $endpoints['origin'];
+        $arrival['destination'] = $endpoints['destination'];
+        $arrival['scheduled_arrival_at'] = date('Y-m-d H:i:s', strtotime($arrival['scheduled_departure_at'] . " +{$travelMinutes} minutes"));
+        $arrival['arrival_state'] = !empty($arrival['arrival_reported_at']) ? 'Arrived' : 'Expected';
+        $upcomingArrivals[] = $arrival;
+    }
+}
+
 $google_maps_script_url = google_maps_script_url('initMap', ['geometry']);
 ?>
 
@@ -148,6 +185,58 @@ $google_maps_script_url = google_maps_script_url('initMap', ['geometry']);
                 <td><strong>Active GPS Vehicles</strong></td>
                 <td><?php echo $activeGpsVehicles; ?></td>
             </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="table-container" style="margin-bottom: 20px;">
+    <div class="table-header">
+        <h2>Upcoming Vehicle Arrivals</h2>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Vehicle</th>
+                <th>Route</th>
+                <th>Where It Will Arrive</th>
+                <th>Departure</th>
+                <th>Expected Arrival</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php if ($upcomingArrivals): ?>
+                <?php foreach ($upcomingArrivals as $arrival): ?>
+                    <tr>
+                        <td>
+                            <strong><?php echo htmlspecialchars($arrival['vehicle_name']); ?></strong><br>
+                            <small><?php echo htmlspecialchars(hz_vehicle_detail_line($arrival)); ?></small><br>
+                            <small>Driver: <?php echo htmlspecialchars($arrival['driver_name'] ?: 'Unassigned'); ?></small>
+                        </td>
+                        <td>
+                            <?php echo htmlspecialchars($arrival['origin']); ?> to <?php echo htmlspecialchars($arrival['destination']); ?><br>
+                            <small><?php echo ucfirst(htmlspecialchars($arrival['direction'])); ?></small>
+                        </td>
+                        <td><?php echo htmlspecialchars($arrival['destination']); ?></td>
+                        <td><?php echo date('M j, Y g:i A', strtotime($arrival['scheduled_departure_at'])); ?></td>
+                        <td>
+                            <?php echo date('M j, Y g:i A', strtotime($arrival['scheduled_arrival_at'])); ?>
+                            <?php if (!empty($arrival['arrival_reported_at'])): ?>
+                                <br><small>Reported: <?php echo date('g:i A', strtotime($arrival['arrival_reported_at'])); ?></small>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <span class="status-badge status-<?php echo htmlspecialchars($arrival['trip_status']); ?>">
+                                <?php echo htmlspecialchars($arrival['arrival_state']); ?> / <?php echo ucwords(str_replace('_', ' ', $arrival['trip_status'])); ?>
+                            </span>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <tr>
+                    <td colspan="6">No scheduled vehicle arrivals for today.</td>
+                </tr>
+            <?php endif; ?>
         </tbody>
     </table>
 </div>

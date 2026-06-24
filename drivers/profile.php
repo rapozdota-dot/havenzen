@@ -18,6 +18,7 @@ function hz_driver_profile_details($conn, int $driverId): ?array
             d.email,
             d.phone_number,
             d.license_number,
+            d.license_code,
             d.license_expiry,
             d.license_class,
             d.license_front_image,
@@ -101,6 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $email = $conn->real_escape_string($_POST['email']);
         $phone_number = $conn->real_escape_string($_POST['phone_number']);
         $address = $conn->real_escape_string($_POST['address'] ?? '');
+        $license_code = $conn->real_escape_string(trim($_POST['license_code'] ?? ''));
         $emergency_contact = $conn->real_escape_string($_POST['emergency_contact'] ?? '');
         // Emergency phone: keep only digits and leading +
         $emergency_phone = preg_replace('/[^0-9+]/', '', $conn->real_escape_string($_POST['emergency_phone'] ?? ''));
@@ -153,6 +155,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     address = '$address',
                     emergency_contact = '$emergency_contact',
                     emergency_phone = '$emergency_phone',
+                    license_code = '$license_code',
                     profile_picture = '$profile_picture',
                     license_front_image = '$license_front_image',
                     license_back_image = '$license_back_image'
@@ -248,6 +251,9 @@ $driver_details = hz_driver_profile_details($conn, intval($driver_id)) ?: $drive
             <div class="profile-info">
                 <h3><?php echo htmlspecialchars($driver_details['full_name']); ?></h3>
                 <p class="profile-role">Professional Driver</p>
+                <?php if (!empty($driver_details['license_code'])): ?>
+                    <p class="profile-role">License Code: <?php echo htmlspecialchars($driver_details['license_code']); ?></p>
+                <?php endif; ?>
                 <p class="profile-status">
                     <span class="status-indicator <?php echo $driver_details['vehicle_status'] ?? 'inactive'; ?>">
                         <i class="fas fa-circle"></i>
@@ -370,6 +376,14 @@ $driver_details = hz_driver_profile_details($conn, intval($driver_id)) ?: $drive
                     <div class="form-group">
                         <label for="profile_picture">Profile Picture</label>
                         <input type="file" id="profile_picture" name="profile_picture" accept="image/*">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="license_code">License Code</label>
+                        <input type="text" id="license_code" name="license_code"
+                               value="<?php echo htmlspecialchars($driver_details['license_code'] ?? ''); ?>"
+                               placeholder="Optional license code">
+                        <small>This code appears on your driver profile for admin reference.</small>
                     </div>
 
                     <div class="form-group">

@@ -45,6 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $phone_digits = hz_register_clean_phone($phone_number);
 
     $license_number = trim($_POST['license_number'] ?? '');
+    $license_code = trim($_POST['license_code'] ?? '');
     $license_expiry = trim($_POST['license_expiry'] ?? '');
     $license_class = trim($_POST['license_class'] ?? '');
     $years_experience = max(0, intval($_POST['years_experience'] ?? 0));
@@ -117,6 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 phone_number,
                                 profile_picture,
                                 license_number,
+                                license_code,
                                 license_expiry,
                                 license_class,
                                 license_front_image,
@@ -126,18 +128,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 emergency_phone,
                                 address,
                                 approval_status
-                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
                         ");
 
                         if ($profile_stmt) {
                             $profile_stmt->bind_param(
-                                'isssssssssisss',
+                                'issssssssssisss',
                                 $newId,
                                 $full_name,
                                 $email,
                                 $phone_digits,
                                 $profile_picture,
                                 $license_number,
+                                $license_code,
                                 $license_expiry,
                                 $license_class,
                                 $license_front_image,
@@ -645,6 +648,10 @@ $conn->close();
                             <div class="form-group">
                                 <label for="license_number">License Number *</label>
                                 <input type="text" id="license_number" name="license_number" value="<?php echo htmlspecialchars($_POST['license_number'] ?? ''); ?>">
+                            </div>
+                            <div class="form-group">
+                                <label for="license_code">License Code</label>
+                                <input type="text" id="license_code" name="license_code" value="<?php echo htmlspecialchars($_POST['license_code'] ?? ''); ?>" placeholder="Optional license code">
                             </div>
                             <div class="form-group">
                                 <label for="license_expiry">License Expiry *</label>

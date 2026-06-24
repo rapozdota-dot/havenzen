@@ -505,6 +505,10 @@ require_once 'header.php';
                                         <span class="detail-label">Fare</span>
                                         <span class="detail-value">PHP <?php echo number_format((float) ($booking['fare'] ?: $booking['fare_estimate']), 2); ?></span>
                                     </div>
+                                    <div class="detail-item">
+                                        <span class="detail-label">Pickup / Destination Notes</span>
+                                        <span class="detail-value"><?php echo !empty($booking['notes']) ? htmlspecialchars($booking['notes']) : 'No passenger note'; ?></span>
+                                    </div>
                                 </div>
 
                                 <?php if (in_array($booking['boarding_status'], ['scheduled', 'vehicle_arrived'], true) && !in_array($booking['status'], ['cancelled', 'completed', 'denied'], true)): ?>

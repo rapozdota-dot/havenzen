@@ -553,8 +553,9 @@ require_once 'header.php';
                     <input type="number" id="baggage_count_<?php echo intval($trip['trip_id']); ?>" name="baggage_count" min="0" value="0">
                 </div>
                 <div class="form-group">
-                    <label for="notes_<?php echo intval($trip['trip_id']); ?>">Notes</label>
-                    <textarea id="notes_<?php echo intval($trip['trip_id']); ?>" name="notes" rows="3" placeholder="Optional rider note"></textarea>
+                    <label for="notes_<?php echo intval($trip['trip_id']); ?>">Pickup / Destination Notes for Driver</label>
+                    <textarea id="notes_<?php echo intval($trip['trip_id']); ?>" name="notes" rows="3" placeholder="Example: Pick me up near the barangay hall and drop me near the school gate."></textarea>
+                    <small>This is a note only. It helps the driver identify your exact pickup and destination points.</small>
                 </div>
                 <?php if (!empty($trip['already_reserved'])): ?>
                     <button type="button" class="btn btn-secondary" style="width:100%; cursor:not-allowed;" disabled title="You already reserved a seat on this trip. Check My Recent Scheduled Bookings below.">Seat Already Reserved</button>

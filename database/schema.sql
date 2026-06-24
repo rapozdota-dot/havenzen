@@ -178,6 +178,7 @@ CREATE TABLE `drivers` (
   `phone_number` varchar(20) DEFAULT NULL,
   `profile_picture` varchar(255) DEFAULT NULL,
   `license_number` varchar(50) DEFAULT NULL,
+  `license_code` varchar(50) DEFAULT NULL,
   `license_expiry` date DEFAULT NULL,
   `license_class` varchar(20) DEFAULT NULL,
   `license_front_image` varchar(255) DEFAULT NULL,

@@ -64,6 +64,7 @@ $pendingDrivers = $conn->query("
         d.email,
         d.phone_number,
         d.license_number,
+        d.license_code,
         d.license_expiry,
         d.license_class,
         d.license_front_image,
@@ -179,6 +180,7 @@ $pendingDrivers = $conn->query("
                         <div><span>Email</span><strong><?php echo htmlspecialchars($pending['email'] ?: 'N/A'); ?></strong></div>
                         <div><span>Phone</span><strong><?php echo htmlspecialchars($pending['phone_number'] ?: 'N/A'); ?></strong></div>
                         <div><span>License No.</span><strong><?php echo htmlspecialchars($pending['license_number'] ?: 'N/A'); ?></strong></div>
+                        <div><span>License Code</span><strong><?php echo htmlspecialchars($pending['license_code'] ?: 'N/A'); ?></strong></div>
                         <div><span>License Class</span><strong><?php echo htmlspecialchars($pending['license_class'] ?: 'N/A'); ?></strong></div>
                         <div><span>License Expiry</span><strong><?php echo $pending['license_expiry'] ? date('M j, Y', strtotime($pending['license_expiry'])) : 'N/A'; ?></strong></div>
                         <div><span>Experience</span><strong><?php echo intval($pending['years_experience'] ?? 0); ?> year(s)</strong></div>
@@ -223,6 +225,7 @@ $pendingDrivers = $conn->query("
                 <th>Username</th>
                 <th>Full Name</th>
                 <th>Phone Number</th>
+                <th>License Code</th>
                 <th>Approval</th>
                 <th>License Images</th>
                 <th>Assigned Vehicle</th>
@@ -240,6 +243,7 @@ $pendingDrivers = $conn->query("
                     u.username,
                     d.full_name,
                     d.phone_number,
+                    d.license_code,
                     d.approval_status,
                     d.license_front_image,
                     d.license_back_image,
@@ -279,6 +283,7 @@ $pendingDrivers = $conn->query("
                 <td><?php echo htmlspecialchars($driver['username']); ?></td>
                 <td><?php echo htmlspecialchars($driver['full_name']); ?></td>
                 <td><?php echo htmlspecialchars($driver['phone_number']); ?></td>
+                <td><?php echo htmlspecialchars($driver['license_code'] ?: 'N/A'); ?></td>
                 <td><?php echo hz_admin_driver_status_badge($driver['approval_status'] ?? 'approved'); ?></td>
                 <td>
                     <?php $hasFrontImage = hz_admin_upload_path_exists($driver['license_front_image'] ?? ''); ?>

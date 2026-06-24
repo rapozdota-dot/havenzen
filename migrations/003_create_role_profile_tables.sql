@@ -42,6 +42,7 @@ CREATE TABLE drivers (
   phone_number VARCHAR(20) NULL,
   profile_picture VARCHAR(255) NULL,
   license_number VARCHAR(50) NULL,
+  license_code VARCHAR(50) NULL,
   license_expiry DATE NULL,
   license_class VARCHAR(20) NULL,
   years_experience INT(11) NULL,
@@ -73,11 +74,11 @@ FROM users
 WHERE role = 'passenger';
 
 INSERT INTO drivers (user_id, full_name, email, phone_number, profile_picture,
-                     license_number, license_expiry, license_class, years_experience,
+                     license_number, license_code, license_expiry, license_class, years_experience,
                      emergency_contact, emergency_phone, address, is_online,
                      current_location, created_at, last_login)
 SELECT user_id, full_name, email, phone_number, profile_picture,
-       license_number, license_expiry, license_class, years_experience,
+       license_number, NULL, license_expiry, license_class, years_experience,
        emergency_contact, emergency_phone, address, is_online,
        current_location, created_at, last_login
 FROM users

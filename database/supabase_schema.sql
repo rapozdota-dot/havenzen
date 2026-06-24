@@ -68,6 +68,7 @@ create table drivers (
   phone_number varchar(20),
   profile_picture varchar(255),
   license_number varchar(50),
+  license_code varchar(50),
   license_expiry date,
   license_class varchar(20),
   license_front_image varchar(255),

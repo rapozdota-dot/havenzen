@@ -508,7 +508,7 @@ if (!function_exists('hz_ensure_havenzen_feature_columns')) {
             return true;
         }
 
-        $schemaVersion = '20260528_performance_schema';
+        $schemaVersion = '20260624_driver_license_code';
         $markerPath = hz_schema_marker_path($schemaVersion);
         if ($markerPath !== '' && is_file($markerPath)) {
             $checked = true;
@@ -522,6 +522,7 @@ if (!function_exists('hz_ensure_havenzen_feature_columns')) {
             ['drivers', 'approved_by', 'INT NULL'],
             ['drivers', 'license_front_image', 'VARCHAR(255) DEFAULT NULL'],
             ['drivers', 'license_back_image', 'VARCHAR(255) DEFAULT NULL'],
+            ['drivers', 'license_code', 'VARCHAR(50) DEFAULT NULL'],
             ['vehicles', 'vehicle_model', 'VARCHAR(100) DEFAULT NULL'],
             ['bookings', 'seats_left_at_booking', 'INT NULL'],
             ['bookings', 'fare_tier_percent', 'INT NOT NULL DEFAULT 100'],
